@@ -9,6 +9,22 @@ import matplotlib.pyplot as plt
 from DataLoader import loadData
 from PredictorStrategy.PredictorModel import PredictorModel
 
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+Static Functions
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
+def clear_border(map_in, r_value):
+    """Set the value of the pixels on the borders"""
+    map_in[0:3, :] = r_value
+    map_in[-3:, :] = r_value
+    map_in[:, 0:3] = r_value
+    map_in[:, -3:] = r_value
+
+    return map_in
+
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -36,13 +52,14 @@ class YieldMapPredictor:
         self.training_years = training_years
         self.pred_year = pred_year
         self.data_mode = data_mode
-        
+
         # Define variables
         self.windowSize = None
         self.outputSize = None
         self.modelType = None
         self.device = None
         self.model = None
+        self.cellids = None
         self.coords = None
         self.data = None
         self.nbands = None
@@ -74,13 +91,13 @@ class YieldMapPredictor:
             self.outputSize = 5
         else:
             self.outputSize = 1
-            
+
         return PredictorModel(self.modelType, self.device, self.nbands, self.windowSize, self.outputSize)
 
     def load_pred_data(self, objective):
         """Load and prepare the data that will be used for prediction"""
         # Load the entire yield map and the features of the selected year
-        self.data, self.coords = self.dataLoader.load_raster(objective=objective)
+        self.data, self.cellids, self.coords = self.dataLoader.load_raster(objective=objective)
         self.nbands = self.data.shape[2]  # Stores the number of features in the dataset.
         self.prev_n = self.data[:, :, 0].copy()  # Save for plotting later in case new prescription maps are used.
 
@@ -88,7 +105,7 @@ class YieldMapPredictor:
         self.mask_field = (self.data[:, :, 2] * 0).astype(np.uint8)  # The elevation raster is used as a reference.
         self.mask_field[np.where(self.data[:, :, 2] != 0)] = 1  # There is field where the value is different than 0
         self.mask_field[np.where(self.data[:, :, 0] == -1)] = 0  # Remove from analysis points with missing N values
-        # self.mask_field = clear_border(self.mask_field, 0)
+        self.mask_field = clear_border(self.mask_field, 0)
 
     def extract2DPatches(self):
         """Extract patches that will be analyzed by the CNN and their corresponding center positions"""
@@ -168,7 +185,7 @@ class YieldMapPredictor:
             n_map[self.mask_field == 1] = n_rate
         else:
             # Load data
-            n_map, self.coords = DataLoader.loadData(path=presc_path, cov=['N'], field=self.field, read_column=True)
+            n_map, _, _ = DataLoader.loadData(path=presc_path, cov=['N'], field=self.field, read_column=True)
             n_map = n_map[:, :, 0]
 
             # Points outside the boundary should be assigned the base-rate nitrogen
@@ -196,8 +213,7 @@ class YieldMapPredictor:
         print("Start Training: ")
         print("******************************")
         # Normalize features using the training set
-        trainx, self.maxs, self.mins = utils.minMaxScale(trainx)
-        self.maxs, self.mins = self.maxs * 1.1, self.mins / 1.1
+        trainx, self.maxs, self.mins = utils.normalize(trainx)
         # Normalize outputs using the training set
         train_y, self.maxY, self.minY = utils.minMaxScale(train_y)
         # Save statistics
@@ -245,9 +261,8 @@ class YieldMapPredictor:
                 # Load training data of the previous years
                 trainx, train_y = self.dataLoader.create_training_set()
                 # Calculate statistics using the training set
-                _, self.maxs, self.mins = utils.minMaxScale(trainx)
+                _, self.maxs, self.mins = utils.normalize(trainx)
                 _, self.maxY, self.minY = utils.minMaxScale(train_y)
-                self.maxs, self.mins = self.maxs * 1.1, self.mins / 1.1
                 del trainx
                 del train_y  # Remove from memory
         else:
@@ -256,6 +271,12 @@ class YieldMapPredictor:
                 [self.maxs, self.mins] = np.load(stats_path)
             else:
                 sys.exit("There provided path does not exist.")
+
+        # Remove areas affected by fire in sec35middle
+        if self.field == 'sec35middle':
+            self.mask_field[83:106, 46:] = 0
+            self.mask_field[102:116, 43:60] = 0
+        self.coords[self.mask_field == 0] = None
 
         # Extract patches and their centers
         patches, centers = self.extract2DPatches()
@@ -266,7 +287,7 @@ class YieldMapPredictor:
             yieldPatches, uncPatches = np.array(
                 self.model.predictSamplesUncertainty(datasample=patches, maxs=self.maxs,
                                                      mins=self.mins, batch_size=256,
-                                                     MC_samples=100))
+                                                     MC_samples=50))
         else:
             yieldPatches = np.array(self.model.predictSamples(datasample=patches, maxs=self.maxs,
                                                               mins=self.mins, batch_size=256))
@@ -365,6 +386,21 @@ class YieldMapPredictor:
                 val_MSE = pickle.load(f)
             PI_map = np.sqrt(PI_map ** 2 + val_MSE)
 
+        # Save maps as shapefiles
+        coords = np.reshape(self.coords, (self.coords.shape[0] * self.coords.shape[1]))  # Vectorize coordinates map
+        yield_vector = np.reshape(yield_map, (yield_map.shape[0] * yield_map.shape[1]))  # Vectorize yield map
+        yield_vector = [y for y, cr in zip(yield_vector, coords) if cr is not None]
+        if self.modelType == "Hyper3DNetQD":
+            yu_vector = np.reshape(y_u, (y_u.shape[0] * y_u.shape[1]))  # Vectorize upper bound map
+            yu_vector = [y for y, cr in zip(yu_vector, coords) if cr is not None]
+            yl_vector = np.reshape(y_l, (y_l.shape[0] * y_l.shape[1]))  # Vectorize lower bound map
+            yl_vector = [y for y, cr in zip(yl_vector, coords) if cr is not None]
+            results = [yield_vector, yu_vector, yl_vector]
+        else:
+            results = [yield_vector]
+        coords = [cr for cr in coords if cr is not None]
+        utils.createShapefile(coords=coords, columns=results, filepath=self.path_model + '_Shapefile', obj=objective)
+
         # Return yield map
         if not uncertainty:
             return yield_map
@@ -382,20 +418,6 @@ class YieldMapPredictor:
 
 
 if __name__ == '__main__':
-    #####################################################
-    # Winter What Experiments
-    #####################################################
-    # filepath = 'C:\\Users\\w63x712\\Documents\\Machine_Learning\\OFPE\\Data\\CSV_Files\\farmers\\' \
-    #            'broyles_10m_yldDat_with_sentinel.csv'
-    # fieldname = 'sec35middle'
-    # method = "Hyper3DNetQD"
-    # unc = False
-    # saveF = True
-    #
-    # predictor = YieldMapPredictor(filename=filepath, field=fieldname, training_years=[2016, 2018], pred_year=2020,
-    #                               data_mode="AggRADARPrec")
-    # predictor.trainPreviousYears(modelType=method, beta_=0.8)
-    # result = predictor.predictYield(modelType=method, uncertainty=True)
 
     #####################################################
     # Corn Field Simulation
@@ -423,8 +445,8 @@ if __name__ == '__main__':
         # predictor.trainPreviousYears(epochs=500, batch_size=64, modelType=method, objective=goal)
         prediction = np.clip(predictor.predictYield(modelType=modelname, objective=goal), a_min=0, a_max=2E4)
         # Compare to the ground-truth and calculate the RMSE
-        target, _, _ = loadData(path=filepath, field=fieldname, year=10 - nt, cov=cvars, inpaint=True,
-                                inpaint_features=False, base_N=120, test=False, obj=goal)
+        target, _, _, _ = loadData(path=filepath, field=fieldname, year=10 - nt, cov=cvars, inpaint=True,
+                                   inpaint_features=False, base_N=120, test=False, obj=goal)
         RMSE.append(utils.mse(prediction, target) ** .5)
         print("Validation RMSE = " + str(RMSE[nt]))
     # Plot lat results for reference

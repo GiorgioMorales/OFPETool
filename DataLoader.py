@@ -4,6 +4,7 @@ import pandas as pd
 from scipy import ndimage
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+# from itertools import cycle, islice
 
 
 #######################################################################################################################
@@ -157,7 +158,8 @@ def loadData(path=None, obj='yld', year=2018, field='', cov=None, mode='AggRADAR
     # Transform XY coordinates to indexes
     data = np.ones((rows.shape[0], cols.shape[0], len(covB))) * -2
     target = np.ones((rows.shape[0], cols.shape[0],)) * -2
-    coords = np.empty((rows.shape[0], cols.shape[0]), dtype=object)
+    cellids = np.empty((rows.shape[0], cols.shape[0]), dtype=object)
+    XYcoords = np.empty((rows.shape[0], cols.shape[0]), dtype=object)
     for d in df.iterrows():
         if not read_column:
             if d[1]['year'] == year and str(d[1]['field']) == field:
@@ -172,7 +174,8 @@ def loadData(path=None, obj='yld', year=2018, field='', cov=None, mode='AggRADAR
                         d[1][f] = -1
                 if not test:
                     target[xcord, ycord, ] = d[1][obj]
-                coords[xcord, ycord] = d[1]['cell_id']
+                cellids[xcord, ycord] = d[1]['cell_id']
+                XYcoords[xcord, ycord] = [d[1]['x'], d[1]['y']]
                 if not test:
                     d2 = d[1].drop(['x', 'y', 'year', 'field', 'cell_id', obj])
                 else:
@@ -185,14 +188,16 @@ def loadData(path=None, obj='yld', year=2018, field='', cov=None, mode='AggRADAR
             for f in covB:  # Check each one of the features
                 if np.isnan(d[1][f]):
                     d[1][f] = -1
-            coords[xcord, ycord] = d[1]['cell_id']
+            cellids[xcord, ycord] = d[1]['cell_id']
+            XYcoords[xcord, ycord] = [d[1]['x'], d[1]['y']]
             d2 = d[1].drop(['x', 'y', 'field', 'cell_id'])
             data[xcord, ycord, :] = d2.iloc[:]
 
     # Flip the rasters horizontally
     target = np.flip(target, 0)
     data = np.flip(data, 0)
-    coords = np.flip(coords, 0)
+    cellids = np.flip(cellids, 0)
+    XYcoords = np.flip(XYcoords, 0)
 
     # Apply in-painting to handle missing information of the target
     if not test:
@@ -220,11 +225,11 @@ def loadData(path=None, obj='yld', year=2018, field='', cov=None, mode='AggRADAR
 
     if not read_column:
         if not test:
-            return target.astype('float32'), data, coords
+            return target.astype('float32'), data, cellids, XYcoords
         else:
-            return data, coords
+            return data, cellids, XYcoords
     else:
-        return data, coords
+        return data, cellids, XYcoords
 
 
 def inpainting(M):
@@ -290,7 +295,7 @@ class DataLoader:
         X = []
         for year in self.training_years:
             # Read the CSV file
-            Yd, Xd, coords = loadData(path=self.filename, field=self.field, year=int(year), cov=self.cov, inpaint=True,
+            Yd, Xd, _, _ = loadData(path=self.filename, field=self.field, year=int(year), cov=self.cov, inpaint=True,
                                           inpaint_features=False, base_N=120, mode=self.mode, obj=objective)
             # Combine target and data into a data cube
             rastercollection = [Yd] + list(Xd.transpose((2, 0, 1)))
@@ -310,9 +315,51 @@ class DataLoader:
         # Transpose dimensions to fit Pytorch order
         X = X.transpose((0, 4, 1, 2, 3))
 
+        # # Count the number of samples for each nitrogen rate level
+        # range0_20 = []
+        # range20_40 = []
+        # range40_60 = []
+        # range60_80 = []
+        # range80_100 = []
+        # range100_120 = []
+        # range120_150 = []
+        # for ip, s in enumerate(X):
+        #     average_nitrogen = np.average(s[0, 0, 1:4, 1:4])
+        #     if len(np.where(s[0, 0, 1:4, 1:4:] < 20)[0]) > 3:
+        #         range0_20.append(ip)
+        #     elif len(np.where(120 <= s[0, 0, 1:4, 1:4])[0]) > 3:
+        #         range120_150.append(ip)
+        #     else:
+        #         if 20 <= average_nitrogen < 40:
+        #             range20_40.append(ip)
+        #         elif 40 <= average_nitrogen < 60:
+        #             range40_60.append(ip)
+        #         elif 60 <= average_nitrogen < 80:
+        #             range60_80.append(ip)
+        #         elif 80 <= average_nitrogen < 100:
+        #             range80_100.append(ip)
+        #         elif 100 <= average_nitrogen < 120:
+        #             range100_120.append(ip)
+        #
+        # # Repeat under-represented samples to obtain a uniform distribution
+        # max_n = int(np.max([len(range0_20), len(range20_40), len(range40_60), len(range60_80), len(range80_100),
+        #                     len(range100_120), len(range120_150)]))
+        # elements = list(islice(cycle(range0_20), max_n))
+        # elements = list(islice(cycle(range40_60), max_n)) + elements
+        # elements = list(islice(cycle(range60_80), max_n)) + elements
+        # elements = list(islice(cycle(range80_100), max_n)) + elements
+        # elements = list(islice(cycle(range100_120), max_n)) + elements
+        # elements = list(islice(cycle(range120_150), max_n)) + elements
+        # temp = np.zeros((len(elements), X.shape[1], X.shape[2], X.shape[3], X.shape[4]))
+        # temp2 = np.zeros((len(elements), Y.shape[1], Y.shape[2]))
+        # for n in range(len(elements)):
+        #     temp[n, :, :, :, :] = X[elements[n], :, :, :, :]
+        #     temp2[n, :, :] = Y[elements[n], :, :]
+        # X, Y = temp, temp2
+
         # Shuffle dataset
         np.random.seed(seed=7)  # Initialize seed to get reproducible results
-        ind = [i for i in range(X.shape[0])]
+        ind = [x for x in range(X.shape[0])]
         np.random.shuffle(ind)
         X = X[ind]
         Y = Y[ind]
@@ -325,25 +372,7 @@ class DataLoader:
 
 if __name__ == '__main__':
     # Test loading real data
-    # ex_path = 'C:\\Users\\w63x712\\Documents\\Machine_Learning\\OFPE\\Data\\CSV_Files\\farmers\\' \
-    #           'broyles_10m_yldDat_with_sentinel.csv'
-    # loader = DataLoader(ex_path, field='sec35middle', training_years=[2016, 2018], pred_year=2020)
-    # dataset = loader.create_training_set()
-
-    # Test loading simulated data
-    ex_path = 'C:\\Users\\w63x712\\Documents\\Machine_Learning\\OFPE\\Data\\CSV_Files\\sim_data.csv'
-    cvars = ['N', 'par1', 'par2', 'par3', 'par4', 'par5', 'par6', 'par7', 'par8', 'par9', 'par10', 'par11', 'par12',
-             'par13', 'par14']
-    # loader = DataLoader(ex_path, field='', training_years=[1, 2, 3, 4, 5, 6, 7, 8, 9], pred_year=2, cov=cvars)
-    # dataset = loader.create_training_set()
-    # raster, _ = loader.load_raster()
-    target, raster, _ = loadData(path=ex_path, field='', year=5, cov=cvars, inpaint=True,
-                                 inpaint_features=False, base_N=120, test=False)
-    fig, axs = plt.subplots(4, 4)
-    c = 0
-    for i in range(4):
-        for j in range(4):
-            if c < 15:
-                axs[i, j].imshow(raster[:, :, c])
-                c += 1
-    axs[3, 3].imshow(target)
+    ex_path = 'C:\\Users\\w63x712\\Documents\\Machine_Learning\\OFPE\\Data\\CSV_Files\\farmers\\' \
+              'broyles_10m_yldDat_with_sentinel.csv'
+    loader = DataLoader(ex_path, field='sec35middle', training_years=[2016, 2018], pred_year=2020)
+    dataset = loader.create_training_set()

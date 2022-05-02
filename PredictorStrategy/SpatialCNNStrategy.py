@@ -1,3 +1,4 @@
+import os
 import sys
 import utils
 import torch
@@ -26,25 +27,24 @@ def enable_dropout(model):
             m.train()
 
 
-def AQD_objective(y_pred, y_true, beta_):
-    """AQD loss function,
+def AQD_objective(y_pred, y_true, beta_, pe):
+    """Proposed AQD loss function,
     @param y_pred: NN output (y_u, y_l, y)
     @param y_true: Ground-truth.
+    @param pe: Point estimate (from the model base).
     @param beta_: Specify the importance of the width factor."""
     # Separate upper and lower limits
-    y_u = y_pred[:, 0] * 15
-    y_l = y_pred[:, 1] * 15
-    y_o = y_pred[:, 2] * 15
-    y_true = y_true * 15
+    y_u = y_pred[:, 0] / 15
+    y_l = y_pred[:, 1] / 15
+    y_o = pe.detach() / 15
+    y_true = y_true / 15
 
-    MSE = torch.mean((y_o - y_true) ** 2)  # Calculate MSE
-    MPIW_p = torch.mean(torch.abs(y_u - y_o) + torch.abs(y_o - y_l))  # Calculate MPIW_penalty
-    Constraints = (torch.exp(torch.mean(-y_u + y_o) + torch.max(torch.abs(y_o - y_true))) +
-                   torch.exp(torch.mean(-y_o + y_l) + torch.max(torch.abs(y_o - y_true))) +
-                   torch.exp(torch.mean(-y_u + y_l)))
+    MPIW_p = torch.mean(torch.abs(y_u - y_o.detach()) + torch.abs(y_o.detach() - y_l))  # Calculate MPIW_penalty
+    cs = torch.mean(torch.abs(y_o - y_true).detach())
+    Constraints = (torch.exp(torch.mean(-y_u + y_true) + cs) +
+                   torch.exp(torch.mean(-y_true + y_l) + cs))
     # Calculate loss
-    Loss_S = (1 - beta_[0]) * MPIW_p + MSE * beta_[0] + Constraints * beta_[1]
-
+    Loss_S = MPIW_p + Constraints * beta_
     return Loss_S
 
 
@@ -59,19 +59,25 @@ class SpatialCNNStrategy(PredictorInterface):
         self.method = None
         self.output_size = None
         self.device = None
+        self.nbands = None
+        self.windowSize = None
 
     def defineModel(self, device, nbands, windowSize, outputSize, method):
         """Override model declaration method"""
         self.method = method
         self.output_size = outputSize
         self.device = device
+        self.nbands = nbands
+        self.windowSize = windowSize
 
         criterion = nn.MSELoss()
+        networkbase = None
         if self.method == 'Hyper3DNet':
             network = Hyper3DNetLiteReg(img_shape=(1, nbands, windowSize, windowSize), output_size=self.output_size)
         elif self.method == "Hyper3DNetQD":
             network = Hyper3DNetLiteReg(img_shape=(1, nbands, windowSize, windowSize), output_size=self.output_size,
-                                        output_channels=3)
+                                        output_channels=2)
+            networkbase = Hyper3DNetLiteReg(img_shape=(1, nbands, windowSize, windowSize), output_size=self.output_size)
         elif self.method == 'Russello':
             network = Russello(img_shape=(1, nbands, windowSize, windowSize))
         elif self.method == 'CNNLF':
@@ -80,9 +86,14 @@ class SpatialCNNStrategy(PredictorInterface):
             sys.exit('The only available network architectures are: Hyper3DNet, Russello, and CNNLF (so far).')
         network.to(device)
         # Training parameters
-        optimizer = optim.Adadelta(network.parameters(), lr=1.0)
+        optimizer = optim.Adadelta(network.parameters(), lr=0.5)
 
-        self.model = CNNObject(network, criterion, optimizer)
+        if self.method == "Hyper3DNetQD":
+            optimizer2 = optim.Adadelta(networkbase.parameters(), lr=1.0)
+            networkbase.to(device)
+            self.model = [CNNObject(network, criterion, optimizer), CNNObject(networkbase, criterion, optimizer2)]
+        else:
+            self.model = CNNObject(network, criterion, optimizer)
 
     def trainModel(self, trainx, train_y, batch_size, device, epochs, filepath, printProcess, beta_, yscale):
         np.random.seed(seed=7)  # Initialize seed to get reproducible results
@@ -99,19 +110,19 @@ class SpatialCNNStrategy(PredictorInterface):
         trainx = trainx[indexes]
         train_y = train_y[indexes]
 
-        # Separate 90% of the data for training
-        valX = trainx[int(len(trainx) * 90 / 100):, :, :, :, :]
-        trainx = trainx[0:int(len(trainx) * 90 / 100), :, :, :, :]
+        # Separate 95% of the data for training
+        valX = trainx[int(len(trainx) * 95 / 100):, :, :, :, :]
+        trainx = trainx[0:int(len(trainx) * 95 / 100), :, :, :, :]
         # If outputSize < windowSize, discard predictions from the outer regions
         cmin = int((train_y.shape[1] - 1) / 2 - (self.output_size - 1) / 2)
         cmax = int((train_y.shape[1] - 1) / 2 + (self.output_size - 1) / 2) + 1
         if self.output_size > 1:  # The output should be a 2-D patch
-            valY = train_y[int(len(train_y) * 90 / 100):, cmin:cmax, cmin:cmax]
-            train_y = train_y[0:int(len(train_y) * 90 / 100), cmin:cmax, cmin:cmax]
+            valY = train_y[int(len(train_y) * 95 / 100):, cmin:cmax, cmin:cmax]
+            train_y = train_y[0:int(len(train_y) * 95 / 100), cmin:cmax, cmin:cmax]
         else:  # Otherwise, the output is just the central value of the patch
-            valY = train_y[int(len(train_y) * 90 / 100):, cmin, cmin]
+            valY = train_y[int(len(train_y) * 95 / 100):, cmin, cmin]
             valY = valY.reshape((len(valY), 1))
-            train_y = train_y[0:int(len(train_y) * 90 / 100), cmin, cmin]
+            train_y = train_y[0:int(len(train_y) * 95 / 100), cmin, cmin]
             train_y = train_y.reshape((len(train_y), 1))
 
         indexes = np.arange(len(trainx))  # Prepare list of indexes for shuffling
@@ -127,14 +138,29 @@ class SpatialCNNStrategy(PredictorInterface):
         MPIW = []
         PICP = []
         MSE = []
-        widths = [0]
+        # widths = [0]
         picp = 0
         first95 = True  # This is a flag used to check if PICP has already reached 95% PICP during the training
-        for epoch in range(epochs):  # Epoch loop
-            if epoch > 0 and (self.method in ['Hyper3DNetQD']):
-                indexes = np.argsort(widths)  # Batch-sorting
 
-            self.model.network.train()  # Sets training mode
+        # If model AQD, start with the pre-trained network
+        if self.method in ['Hyper3DNetQD']:
+            filepathbase = filepath.replace('QD', '')
+            if os.path.exists(filepathbase):
+                self.model[1].network.load_state_dict(torch.load(filepathbase))
+            for target_param, param in zip(self.model[0].network.named_parameters(),
+                                           self.model[1].network.named_parameters()):
+                target_param[1].data.copy_(param[1].data)
+
+        for epoch in range(epochs):  # Epoch loop
+            # Shuffle indexes
+            np.random.shuffle(indexes)
+
+            if self.method in ['Hyper3DNetQD']:
+                self.model[0].network.train()  # Sets training mode
+                self.model[1].network.eval()
+            else:
+                self.model.network.train()  # Sets training mode
+
             running_loss = 0.0
             for step in range(T):  # Batch loop
                 # Generate indexes of the batch
@@ -145,16 +171,26 @@ class SpatialCNNStrategy(PredictorInterface):
                 trainyb = torch.from_numpy(train_y[inds]).float().to(device)
 
                 # zero the parameter gradients
-                self.model.optimizer.zero_grad()
+                if self.method in ['Hyper3DNetQD']:
+                    self.model[0].optimizer.zero_grad()
+                else:
+                    self.model.optimizer.zero_grad()
 
                 # forward + backward + optimize
-                outputs = self.model.network(trainxb, self.device)
+                if self.method in ['Hyper3DNetQD']:
+                    outputs = self.model[0].network(trainxb, self.device)
+                else:
+                    outputs = self.model.network(trainxb, self.device)
                 if self.method == 'Hyper3DNetQD':
-                    loss = AQD_objective(outputs, trainyb, beta_)
+                    point_estimates = self.model[1].network(trainxb, self.device).squeeze(1)
+                    loss = AQD_objective(outputs, trainyb, beta_, pe=point_estimates)
+                    loss.backward()
+                    self.model[0].optimizer.step()
                 else:
                     loss = self.model.criterion(outputs, trainyb)
-                loss.backward()
-                self.model.optimizer.step()
+                    # loss = exp_loss(outputs, trainyb)
+                    loss.backward()
+                    self.model.optimizer.step()
 
                 # print statistics
                 running_loss += loss.item()
@@ -163,31 +199,38 @@ class SpatialCNNStrategy(PredictorInterface):
 
             # Validation step
             with torch.no_grad():
-                self.model.network.eval()
-                # if self.method in ['Hyper3DNetQD']:  # These methods use mult forward passes w active dropout
-                #     enable_dropout(self.model.network)
-                #     ypredtr, ypred = 0, 0
-                #     for r in range(5):
-                #         ypredtr += self.model.network(torch.from_numpy(trainx).float().to(self.device),
-                #                                       self.device).cpu().numpy()
-                #         ypred += self.model.network(torch.from_numpy(valX).float().to(self.device),
-                #                                     self.device).cpu().numpy()
-                #     ypredtr /= 5
-                #     ypred /= 5
-                # else:
-                ypredtr = self.model.network(torch.from_numpy(trainx).float().to(self.device),
-                                             self.device).cpu().numpy()
-                ypred = self.model.network(torch.from_numpy(valX).float().to(self.device),
-                                           self.device).cpu().numpy()
-                # Revert nornmalization
+                if self.method in ['Hyper3DNetQD']:  # These methods use mult forward passes w active dropout
+                    self.model[0].network.eval()
+                    samples = 5
+                    enable_dropout(self.model[0].network)
+                    ypredtr, ypred = 0, 0
+                    for r in range(samples):
+                        ypredtr += self.model[0].network(torch.from_numpy(trainx).float().to(self.device),
+                                                         self.device).cpu().numpy()
+                        ypred += self.model[0].network(torch.from_numpy(valX).float().to(self.device),
+                                                       self.device).cpu().numpy()
+                    ypredtr /= samples
+                    ypred /= samples
+                else:
+                    self.model.network.eval()
+                    ypredtr = self.model.network(torch.from_numpy(trainx).float().to(self.device),
+                                                 self.device).cpu().numpy()
+                    ypred = self.model.network(torch.from_numpy(valX).float().to(self.device),
+                                               self.device).cpu().numpy()
+                # Revert normalization
                 Ytrain_original = utils.reverseMinMaxScale(train_y, yscale[0], yscale[1])
                 Yval_original = utils.reverseMinMaxScale(valY, yscale[0], yscale[1])
                 ypredtr = utils.reverseMinMaxScale(ypredtr, yscale[0], yscale[1])
                 ypred = utils.reverseMinMaxScale(ypred, yscale[0], yscale[1])
 
                 if self.method == 'Hyper3DNetQD':  # Average upper and lower limit to obtain expected output
-                    msetr = utils.mse(Ytrain_original, ypredtr[:, 2, :, :])
-                    mse = utils.mse(Yval_original, ypred[:, 2, :, :])
+                    self.model[1].network.eval()
+                    petr = self.model[1].network(torch.from_numpy(trainx).float().to(self.device), device).cpu().numpy()
+                    pe = self.model[1].network(torch.from_numpy(valX).float().to(self.device), device).cpu().numpy()
+                    petr = utils.reverseMinMaxScale(petr, yscale[0], yscale[1])
+                    pe = utils.reverseMinMaxScale(pe, yscale[0], yscale[1])
+                    msetr = utils.mse(Ytrain_original, petr)
+                    mse = utils.mse(Yval_original, pe)
                 else:
                     msetr = utils.mse(Ytrain_original, ypredtr)
                     mse = utils.mse(Yval_original, ypred)
@@ -215,17 +258,20 @@ class SpatialCNNStrategy(PredictorInterface):
                     MPIW.append(width)
                     PICP.append(torch.mean(K).item())
                     # Get a vector of all the PI widths in the training set
-                    widths = np.mean((y_utr - y_ltr).cpu().numpy(), axis=(1, 2))
+                    # widths = np.mean((y_utr - y_ltr).cpu().numpy(), axis=(1, 2))
 
             # Save model if PICP increases
             if self.method == 'Hyper3DNetQD':
                 # Criteria 1: If <95, choose max picp, if picp>95, choose any picp if width<minimum width
-                if mse < val_mse:
+                if (((val_picp == picp < .95 and width < val_mpiw) or (val_picp < picp < .95)) and first95) or \
+                        (picp >= 0.95 and first95) or (picp >= 0.95 and width < val_mpiw and not first95):
+                    if picp >= .95:
+                        first95 = False
                     val_mse = mse
                     val_picp = picp
                     val_mpiw = width
                     if filepath is not None:
-                        torch.save(self.model.network.state_dict(), filepath)
+                        torch.save(self.model[0].network.state_dict(), filepath)
             else:  # Save model if MSE decreases
                 if mse < val_mse:
                     val_mse = mse
@@ -258,26 +304,31 @@ class SpatialCNNStrategy(PredictorInterface):
 
     def predictSamples(self, datasample, maxs, mins, batch_size, device):
         """Predict yield values (in patches or single values) given a batch of samples."""
-        valxn = utils.applyMinMaxScale(datasample, maxs, mins)
+        valxn = utils.applynormalize(datasample, maxs, mins)
 
         with torch.no_grad():
-            self.model.network.eval()
-            enable_dropout(self.model.network)
+            if self.method == 'Hyper3DNetQD':
+                self.model[1].network.eval()
+                enable_dropout(self.model[1].network)
+            else:
+                self.model.network.eval()
+                enable_dropout(self.model.network)
             ypred = []
             Teva = np.ceil(1.0 * len(datasample) / batch_size).astype(np.int32)
             indtest = np.arange(len(datasample))
             for b in range(Teva):
                 inds = indtest[b * batch_size:(b + 1) * batch_size]
-                ypred_batch = self.model.network(torch.from_numpy(valxn[inds]).float().to(device), device)
                 if self.method == 'Hyper3DNetQD':
-                    ypred_batch = ypred_batch[:, 2, :, :]
+                    ypred_batch = self.model[1].network(torch.from_numpy(valxn[inds]).float().to(device), device)
+                else:
+                    ypred_batch = self.model.network(torch.from_numpy(valxn[inds]).float().to(device), device)
                 ypred = ypred + (ypred_batch.cpu().numpy()).tolist()
 
         return ypred
 
     def predictSamplesUncertainty(self, datasample, maxs, mins, batch_size, device, MC_samples):
         """Predict yield probability distributions given a batch of samples using MCDropout"""
-        valxn = utils.applyMinMaxScale(datasample, maxs, mins)
+        valxn = utils.applynormalize(datasample, maxs, mins)
 
         with torch.no_grad():
             if self.output_size == 1:
@@ -288,13 +339,25 @@ class SpatialCNNStrategy(PredictorInterface):
                     preds_MC = np.zeros((len(datasample), 3, self.output_size, self.output_size, MC_samples))
             for it in range(0, MC_samples):  # Test the model 'MC_samples' times
                 ypred = []
-                self.model.network.eval()
-                enable_dropout(self.model.network)  # Set Dropout layers to test mode
+                if self.method == "Hyper3DNetQD":
+                    self.model[0].network.eval()
+                    enable_dropout(self.model[0].network)
+                    self.model[1].network.eval()
+                else:
+                    self.model.network.eval()
+                    enable_dropout(self.model.network)  # Set Dropout layers to test mode
                 Teva = np.ceil(1.0 * len(datasample) / batch_size).astype(np.int32)  # Number of batches
                 indtest = np.arange(len(datasample))
                 for b in range(Teva):
                     inds = indtest[b * batch_size:(b + 1) * batch_size]
-                    ypred_batch = self.model.network(torch.from_numpy(valxn[inds]).float().to(device), device)
+                    if self.method == "Hyper3DNetQD":
+                        ypred_batch = np.zeros((len(inds), 3, self.output_size, self.output_size))
+                        ypred_batch[:, 0:2, :, :] = self.model[0].network(torch.from_numpy(
+                            valxn[inds]).float().to(device), device).cpu().detach().numpy()
+                        ypred_batch[:, 2, :, :] = self.model[1].network(
+                            torch.from_numpy(valxn[inds]).float().to(device), device).cpu().detach().numpy()
+                    else:
+                        ypred_batch = self.model.network(torch.from_numpy(valxn[inds]).float().to(device), device)
                     ypred = ypred + ypred_batch.tolist()
 
                 if self.output_size == 1:
@@ -309,4 +372,10 @@ class SpatialCNNStrategy(PredictorInterface):
         return preds_MC, None
 
     def loadModelStrategy(self, path):
-        self.model.network.load_state_dict(torch.load(path))
+        if self.method == "Hyper3DNetQD":
+            self.model[0].network.load_state_dict(torch.load(path))
+            pathbase = path.replace('QD', '')
+            if os.path.exists(pathbase):
+                self.model[1].network.load_state_dict(torch.load(pathbase))
+        else:
+            self.model.network.load_state_dict(torch.load(path))

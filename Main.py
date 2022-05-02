@@ -1,55 +1,59 @@
+import utils
+import numpy as np
+import matplotlib.pyplot as plt
+from DataLoader import loadData
 from YieldMapPredictor import YieldMapPredictor
+
 
 if __name__ == '__main__':
     #####################################################
     # Winter What Experiments
     #####################################################
     filepath = 'C:\\Users\\w63x712\\Documents\\Machine_Learning\\OFPE\\Data\\CSV_Files\\farmers\\' \
-               'broyles_10m_yldDat_with_sentinel.csv'
-    fieldname = 'sec35middle'
-    modelname = "Hyper3DNet"
+               'wood_10m_yldDat_with_sentinel.csv'
+    fieldname = 'henrys'
+    modelname = "Hyper3DNetQD"
 
-    predictor = YieldMapPredictor(filename=filepath, field=fieldname, training_years=[2016, 2018], pred_year=2020,
-                                  data_mode="AggRADARPrec")
-    predictor.trainPreviousYears(modelType=modelname)
-    result = predictor.predictYield(modelType=modelname)
+    for b1 in np.arange(4, 10, 0.5):
+        print("*************************************")
+        print("Tuning with beta = " + str([b1]))
+        print("*************************************")
+        predictor = YieldMapPredictor(filename=filepath, field=fieldname, training_years=[2016, 2018], pred_year=2020,
+                                      data_mode="AggRADARPrec")
+        predictor.trainPreviousYears(modelType=modelname, batch_size=16, epochs=150, beta_=b1, print_process=True)
+        # y_map_QD = predictor.predictYield(modelType=modelname)
+        y_map_QD, u_map_QD, l_map_QD, PI_map_QD = predictor.predictYield(modelType=modelname, uncertainty=True)  #
+        target, _, _, _ = loadData(path=filepath, field=fieldname, year=2020, inpaint=True,
+                                   inpaint_features=False, base_N=120, test=False)
+        target = target * predictor.mask_field
+        y_map_QD[target == -1] = -1
+        u_map_QD[target == -1] = -1
+        l_map_QD[target == -1] = -1
+        PI_map_QD[target == -1] = -1
+        RMSE = utils.mse(y_map_QD, target, removeZeros=True) ** .5
+        Ymap_vec = np.reshape(target, (y_map_QD.shape[0] * y_map_QD.shape[1], 1))
+        yield_map_vec = np.reshape(y_map_QD, (y_map_QD.shape[0] * y_map_QD.shape[1], 1))
+        y_ur = np.reshape(u_map_QD, (y_map_QD.shape[0] * y_map_QD.shape[1], 1))
+        y_ur = np.array([i for m, i in zip(yield_map_vec, y_ur) if m > 0])
+        y_lr = np.reshape(l_map_QD, (y_map_QD.shape[0] * y_map_QD.shape[1], 1))
+        y_lr = np.array([i for m, i in zip(yield_map_vec, y_lr) if m > 0])
+        # Vectorize maps and remove points outside the field
+        Ymap_vec2 = np.array([i for m, i in zip(yield_map_vec, Ymap_vec) if m > 0])
+        yield_map_vec2 = np.array([i for i in yield_map_vec if i > 0])
+        PI_map_vec = np.reshape(PI_map_QD, (PI_map_QD.shape[0] * PI_map_QD.shape[1], 1))
+        PI_map_vec = np.array([i for m, i in zip(yield_map_vec, PI_map_vec) if m > 0])
+        MPIW0, MPIW, PICP, K, N = utils.MPIW_PICP(y_true=Ymap_vec2, y_u=y_ur, y_l=y_lr, unc=PI_map_vec)
+        print("RMSE: " + str(round(RMSE, 2)))
+        print("MPIW: " + str(round(MPIW0, 3)))
+        print("# capured: " + str(K) + " / " + str(N))
+        print("MPIWcapt: " + str(round(MPIW, 3)))
+        print("PICP: " + str(round(PICP, 3)))
+        plt.figure()
+        plt.imshow(y_map_QD, vmin=0, vmax=150)
+        plt.title("PI map")
+        plt.axis("off")
 
-    #####################################################
-    # Corn Field Simulation
-    #####################################################
-    # filepath = 'C:\\Users\\w63x712\\Documents\\Machine_Learning\\OFPE\\Data\\CSV_Files\\sim_data.csv'
-    # fieldname = ''
-    # cvars = ['N', 'par1', 'par2', 'par3', 'par4', 'par5', 'par6', 'par7', 'par8', 'par9', 'par10', 'par11', 'par12',
-    #          'par13', 'par14']
-    # modelname = "Hyper3DNet"
-    # goal = 'yld'
-    # # method = "GAM"
-    # # 10-fold cross validation
-    # RMSE = []
-    # prediction, target = None, None
-    # for nt in range(10):
-    #     print("************************************************************************************************")
-    #     print("Fold " + str(nt + 1) + " / 10")
-    #     print("************************************************************************************************")
-    #     tyears = list(np.arange(1, 11))
-    #     tyears.remove(10 - nt)
-    #     pyear = 10 - nt
-    #     predictor = YieldMapPredictor(filename=filepath, field=fieldname, training_years=tyears, pred_year=pyear,
-    #                                   cov=cvars)
-    #     # Train and validate
-    #     predictor.trainPreviousYears(epochs=500, batch_size=64, modelType=method, objective=goal)
-    #     prediction = np.clip(predictor.predictYield(modelType=modelname, objective=goal), a_min=0, a_max=2E4)
-    #     # Compare to the ground-truth and calculate the RMSE
-    #     target, _, _ = loadData(path=filepath, field=fieldname, year=10 - nt, cov=cvars, inpaint=True,
-    #                             inpaint_features=False, base_N=120, test=False, obj=goal)
-    #     RMSE.append(utils.mse(prediction, target) ** .5)
-    #     print("Validation RMSE = " + str(RMSE[nt]))
-    # # Plot lat results for reference
-    # plt.figure()
-    # plt.imshow(prediction)
-    # plt.title("Predicted yield map")
-    # plt.axis("off")
-    # plt.figure()
-    # plt.imshow(target)
-    # plt.title("Ground-truth yield map")
-    # plt.axis("off")
+        plt.figure()
+        plt.imshow(PI_map_QD, vmin=0, vmax=80)
+        plt.title("PI map")
+        plt.axis("off")

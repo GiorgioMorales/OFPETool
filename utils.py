@@ -1,11 +1,11 @@
-import os
 import sys
-import cv2
-import h5py
 import gdal
+import shutil
 import numpy as np
+import osgeo.ogr
+import osgeo.osr
 import pandas as pd
-from itertools import cycle, islice
+from osgeo import ogr
 
 
 def readRaster(path):
@@ -39,6 +39,50 @@ def add_replace_column_CSV(path, column_name, column_data, coords, year=None, fi
     df.to_csv(path, index=False)
 
     print("Done! The following file was updated: " + path)
+
+
+def createShapefile(coords, columns, filepath, obj):
+    """Create shapefile using given coordinates"""
+    yield_vector = columns[0]
+    yu_vector, yl_vector = None, None
+    if len(columns) > 1:
+        yu_vector = columns[1]
+        yl_vector = columns[2]
+
+    # Create a spatial reference
+    spatialReference = osgeo.osr.SpatialReference()
+    spatialReference.ImportFromProj4('+proj=utm +zone=12N +ellps=WGS84 +datum=WGS84 +units=m')
+    driver = osgeo.ogr.GetDriverByName('ESRI Shapefile')  # Select the driver for our shp-file creation.
+    # Create file where the data will be stored
+    shapeData = driver.CreateDataSource(filepath)
+    if shapeData.GetLayer() is not None:  # If a previous shapefile exists, remove it first
+        shapeData.Destroy()
+        shutil.rmtree(filepath)
+        shapeData = driver.CreateDataSource(filepath)
+    layer = shapeData.CreateLayer('predictions', spatialReference, osgeo.ogr.wkbPoint)
+    # Create layer fields
+    new_field = ogr.FieldDefn(obj + "-Pred", ogr.OFTReal)
+    layer.CreateField(new_field)
+    new_field = ogr.FieldDefn(obj + "-Up", ogr.OFTReal)
+    layer.CreateField(new_field)
+    new_field = ogr.FieldDefn(obj + "-Low", ogr.OFTReal)
+    layer.CreateField(new_field)
+    layer_defn = layer.GetLayerDefn()  # Gets parameters of the current shapefile
+
+    # Save each point
+    point = osgeo.ogr.Geometry(osgeo.ogr.wkbPoint)
+    for index, p in enumerate(coords):
+        point.AddPoint(p[0], p[1])  # Add X, Y coordinates
+        featureIndex = index
+        feature = osgeo.ogr.Feature(layer_defn)
+        feature.SetGeometry(point)
+        feature.SetFID(featureIndex)
+        feature.SetField(obj + "-Pred", yield_vector[index])
+        if len(columns) > 1:
+            feature.SetField(obj + "-Up", yu_vector[index])
+            feature.SetField(obj + "-Low", yl_vector[index])
+        layer.CreateFeature(feature)
+    shapeData.Destroy()
 
 
 def add_rotation_flip(x, y):
@@ -83,13 +127,17 @@ def minMaxScale(trainx):
     mins = np.zeros((trainx.shape[2], 1))
     if trainx.ndim > 4:
         for n in range(trainx.shape[2]):
-            maxs[n, ] = np.max(trainxn[:, :, n, :, :])
-            mins[n, ] = np.min(trainxn[:, :, n, :, :])
-            trainxn[:, :, n, :, :] = (trainxn[:, :, n, :, :] - mins[n, ]) / (maxs[n, ] - mins[n, ]) * 10
+            if n == 5:  # If the covariate is precipitation, use specific minimum and maximum values
+                maxs[n, ] = 250
+                mins[n, ] = 50
+            else:
+                maxs[n, ] = np.max(trainxn[:, :, n, :, :])
+                mins[n, ] = np.min(trainxn[:, :, n, :, :])
+            trainxn[:, :, n, :, :] = (trainxn[:, :, n, :, :] - mins[n, ]) / (maxs[n, ] - mins[n, ])
     else:
         maxs = np.max(trainxn)
         mins = np.min(trainxn)
-        trainxn = (trainxn - mins) / (maxs - mins) * 10
+        trainxn = (trainxn - mins) / (maxs - mins) * 150
     return trainxn, maxs, mins
 
 
@@ -98,9 +146,9 @@ def applyMinMaxScale(testx, maxs, mins):
     testxn = testx.copy()
     if testxn.ndim > 4:
         for n in range(testx.shape[2]):
-            testxn[:, :, n, :, :] = (testxn[:, :, n, :, :] - mins[n, ]) / (maxs[n, ] - mins[n, ]) * 10
+            testxn[:, :, n, :, :] = (testxn[:, :, n, :, :] - mins[n, ]) / (maxs[n, ] - mins[n, ])
     else:
-        testxn = (testxn * (maxs - mins) / 10) + mins
+        testxn = (testxn - mins) / (maxs - mins) * 150
     return testxn
 
 
@@ -117,14 +165,14 @@ def reverseMinMaxScale(testx, maxs, mins):
     testxn = testx.copy()
     if testxn.ndim > 4:
         for n in range(testx.shape[2]):
-            testxn[:, :, n, :, :] = (testxn[:, :, n, :, :] * (maxs[n, ] - mins[n, ]) / 10) - mins[n, ]
+            testxn[:, :, n, :, :] = (testxn[:, :, n, :, :] * (maxs[n, ] - mins[n, ])) - mins[n, ]
     else:
-        testxn = (testxn * (maxs - mins) / 10) + mins
+        testxn = (testxn * (maxs - mins) / 150) + mins
 
     return testxn
 
 
-def mse(imageA, imageB):
+def mse(imageA, imageB, removeZeros=False):
     """Calculate the 'Mean Squared Error' between the two images."""
     if imageA.ndim == 3:
         newdim = imageA.shape[0] * imageA.shape[1] * imageA.shape[2]
@@ -132,7 +180,11 @@ def mse(imageA, imageB):
         newdim = imageA.shape[0] * imageA.shape[1]
     else:
         sys.exit("Tensor has to have 2 o3 3 dimensions.")
-    MSE = np.sum((np.reshape(imageA, newdim) - np.reshape(imageB, newdim)) ** 2) / float(newdim)
+    differences = np.reshape(imageA, newdim) - np.reshape(imageB, newdim)
+    if removeZeros:
+        differences = np.array([d for d in differences if d != 0])
+        newdim = len(differences)
+    MSE = np.sum(differences ** 2) / float(newdim)
     return MSE
 
 
