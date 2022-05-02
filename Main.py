@@ -14,7 +14,7 @@ if __name__ == '__main__':
     fieldname = 'henrys'
     modelname = "Hyper3DNetQD"
 
-    for b1 in np.arange(4, 10, 0.5):
+    for b1 in np.arange(5, 10, 0.5):
         print("*************************************")
         print("Tuning with beta = " + str([b1]))
         print("*************************************")
