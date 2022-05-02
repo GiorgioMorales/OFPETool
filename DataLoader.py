@@ -1,4 +1,5 @@
 import cv2
+import sys
 import numpy as np
 import pandas as pd
 from scipy import ndimage
@@ -117,19 +118,15 @@ def loadData(path=None, obj='yld', year=2018, field='', cov=None, mode='AggRADAR
     """
 
     # Set default covariates that will be read depending on the selected mode
-    if mode == 'AllPrec':
+    if mode == 'All':
         covariates = ['aa_n', 'slope', 'elev', 'tpi', 'aspect_rad', 'prec_cy_g', 'ndvi_py_f', 'ndwi_py_f',
                       'vv_cy_f', 'vh_cy_f']
-    elif mode == 'All':
-        covariates = ['aa_n', 'slope', 'elev', 'tpi', 'aspect_rad', 'ndvi_py_f', 'ndwi_py_f', 'vv_cy_f', 'vh_cy_f']
     elif mode == 'AggRADAR':
         covariates = ['aa_n', 'slope', 'elev', 'tpi', 'aspect_rad', 'vv_cy_f', 'vh_cy_f']
     elif mode == 'AggRADARPrec':
         covariates = ['aa_n', 'slope', 'elev', 'tpi', 'aspect_rad', 'prec_cy_g', 'vv_cy_f', 'vh_cy_f']
-    elif mode == 'AggPrec':
-        covariates = ['aa_n', 'slope', 'elev', 'tpi', 'aspect_rad', 'prec_cy_g']
     else:
-        covariates = ['aa_n', 'slope', 'elev', 'tpi', 'aspect_rad']
+        sys.exit("The possible combinations are 'All', 'AggRADAR', and 'AggRADARPrec'.")
 
     if cov is None or cov == ['N']:  # Set default features in case it is not specified.
         covB = covariates

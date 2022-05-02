@@ -226,7 +226,7 @@ class YieldMapPredictor:
         return self.model.trainPrevious(trainx, train_y, batch_size, epochs, self.path_model, print_process,
                                         beta_=beta_, yscale=[self.maxY, self.minY])
 
-    def predictYield(self, uncertainty=False, stats_path=None, model_path=None, modelType='Hyper3DNet',
+    def predict(self, uncertainty=False, stats_path=None, model_path=None, modelType='Hyper3DNet',
                      objective='yld'):
         """Predict the yield map using a sliding window.
         @param uncertainty: If True, calculate and return prediction intervals.
@@ -443,7 +443,7 @@ if __name__ == '__main__':
                                       cov=cvars)
         # Train and validate
         # predictor.trainPreviousYears(epochs=500, batch_size=64, modelType=method, objective=goal)
-        prediction = np.clip(predictor.predictYield(modelType=modelname, objective=goal), a_min=0, a_max=2E4)
+        prediction = np.clip(predictor.predict(modelType=modelname, objective=goal), a_min=0, a_max=2E4)
         # Compare to the ground-truth and calculate the RMSE
         target, _, _, _ = loadData(path=filepath, field=fieldname, year=10 - nt, cov=cvars, inpaint=True,
                                    inpaint_features=False, base_N=120, test=False, obj=goal)
