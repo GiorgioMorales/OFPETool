@@ -37,6 +37,9 @@ class GAMStrategy(PredictorInterface):
         # Remove repetitions
         trainx, kept_indices = np.unique(trainx, axis=0, return_index=True)
         train_y = train_y[kept_indices]
+        kept_indices = np.where(train_y != 0)[0]
+        trainx = trainx[kept_indices]
+        train_y = train_y[kept_indices]
 
         # Start training
         self.model = GammaGAM()

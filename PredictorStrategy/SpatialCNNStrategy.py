@@ -4,6 +4,7 @@ import utils
 import torch
 import pickle
 import random
+from tqdm import trange
 from models.networks import *
 from models.modelObject import *
 from PredictorStrategy.PredictorInterface import PredictorInterface
@@ -103,6 +104,29 @@ class SpatialCNNStrategy(PredictorInterface):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+        # If model uses AQD (Hyper3DNetQD), start with the pre-trained network
+        if self.method in ['Hyper3DNetQD']:
+            filepathbase = filepath.replace('QD', '')
+            if os.path.exists(filepathbase):  # If the base model has already been trained
+                print("A trained base model was found!")
+            else:
+                print("Training base model first......")
+                Basepredictor = SpatialCNNStrategy()
+                Basepredictor.defineModel(device=self.device, nbands=self.nbands, windowSize=self.windowSize,
+                                          outputSize=self.output_size, method='Hyper3DNet')
+                trainx2 = trainx.copy()
+                train_y2 = train_y.copy()
+                Basepredictor.trainModel(trainx2, train_y2, batch_size, device, epochs, filepathbase, False, beta_, yscale)
+                print("Base model training complete!")
+            # Copy weights
+            print("Copying weights...")
+            self.model[1].network.load_state_dict(torch.load(filepathbase))
+            for target_param, param in zip(self.model[0].network.named_parameters(),
+                                           self.model[1].network.named_parameters()):
+                target_param[1].data.copy_(param[1].data)
+            epochs = 150  # To train 100 more epochs for the generating PIs
+            batch_size = 32
+
         # trainx, train_y = utils.add_rotation_flip(trainx, train_y)
 
         indexes = np.arange(len(trainx))  # Prepare list of indexes for shuffling
@@ -111,18 +135,18 @@ class SpatialCNNStrategy(PredictorInterface):
         train_y = train_y[indexes]
 
         # Separate 95% of the data for training
-        valX = trainx[int(len(trainx) * 95 / 100):, :, :, :, :]
-        trainx = trainx[0:int(len(trainx) * 95 / 100), :, :, :, :]
+        valX = trainx[int(len(trainx) * 90 / 100):, :, :, :, :]
+        trainx = trainx[0:int(len(trainx) * 90 / 100), :, :, :, :]
         # If outputSize < windowSize, discard predictions from the outer regions
         cmin = int((train_y.shape[1] - 1) / 2 - (self.output_size - 1) / 2)
         cmax = int((train_y.shape[1] - 1) / 2 + (self.output_size - 1) / 2) + 1
         if self.output_size > 1:  # The output should be a 2-D patch
-            valY = train_y[int(len(train_y) * 95 / 100):, cmin:cmax, cmin:cmax]
-            train_y = train_y[0:int(len(train_y) * 95 / 100), cmin:cmax, cmin:cmax]
+            valY = train_y[int(len(train_y) * 90 / 100):, cmin:cmax, cmin:cmax]
+            train_y = train_y[0:int(len(train_y) * 90 / 100), cmin:cmax, cmin:cmax]
         else:  # Otherwise, the output is just the central value of the patch
-            valY = train_y[int(len(train_y) * 95 / 100):, cmin, cmin]
+            valY = train_y[int(len(train_y) * 90 / 100):, cmin, cmin]
             valY = valY.reshape((len(valY), 1))
-            train_y = train_y[0:int(len(train_y) * 95 / 100), cmin, cmin]
+            train_y = train_y[0:int(len(train_y) * 90 / 100), cmin, cmin]
             train_y = train_y.reshape((len(train_y), 1))
 
         indexes = np.arange(len(trainx))  # Prepare list of indexes for shuffling
@@ -142,16 +166,7 @@ class SpatialCNNStrategy(PredictorInterface):
         picp = 0
         first95 = True  # This is a flag used to check if PICP has already reached 95% PICP during the training
 
-        # If model AQD, start with the pre-trained network
-        if self.method in ['Hyper3DNetQD']:
-            filepathbase = filepath.replace('QD', '')
-            if os.path.exists(filepathbase):
-                self.model[1].network.load_state_dict(torch.load(filepathbase))
-            for target_param, param in zip(self.model[0].network.named_parameters(),
-                                           self.model[1].network.named_parameters()):
-                target_param[1].data.copy_(param[1].data)
-
-        for epoch in range(epochs):  # Epoch loop
+        for epoch in trange(epochs):  # Epoch loop
             # Shuffle indexes
             np.random.shuffle(indexes)
 
@@ -188,7 +203,6 @@ class SpatialCNNStrategy(PredictorInterface):
                     self.model[0].optimizer.step()
                 else:
                     loss = self.model.criterion(outputs, trainyb)
-                    # loss = exp_loss(outputs, trainyb)
                     loss.backward()
                     self.model.optimizer.step()
 

@@ -2,7 +2,7 @@ import utils
 import random
 import pickle
 import numpy as np
-import statsmodels.api as sm
+from sklearn.linear_model import LinearRegression
 from PredictorStrategy.PredictorInterface import PredictorInterface
 
 
@@ -39,8 +39,8 @@ class MLRegressionStrategy(PredictorInterface):
         train_y = train_y[kept_indices]
 
         # Start training
-        self.model = sm.OLS(train_y, trainx)
-        self.model.fit()
+        self.model = LinearRegression()
+        self.model.fit(trainx, train_y)
 
         # Calculate training error
         y_pred = self.model.predict(trainx)

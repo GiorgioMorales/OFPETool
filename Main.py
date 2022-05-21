@@ -34,17 +34,17 @@ if __name__ == '__main__':
                         map, the upper bounds, the lower bounds, and the uncertainty map.
     """
     filepath = 'C:\\Users\\w63x712\\Documents\\Machine_Learning\\OFPE\\Data\\CSV_Files\\farmers\\' \
-               'broyles_10m_yldDat_with_sentinel.csv'
-    fieldName = 'sec35middle'
+               'wood_10m_yldDat_with_sentinel.csv'
+    fieldName = 'henrys'
     trainingYears = [2016, 2018]
     predYear = 2020
-    modelName = 'Hyper3DNet'
+    modelName = 'Hyper3DNetQD'
     # Note that 'dataMode' and 'obj' were not specified, so dataMode='AggRADARPred' and obj='yld' by default.
-    batchSize = 16
-    epochs = 500
-    beta = 6.75
+    batchSize = 32  # For henrys: batchSize = 32; for sec35middle: batchSize = 128
+    epochs = 300
+    beta = 5.5  # For henrys: beta = 5.5; for sec35middle: beta = 7
     printProcess = True
-    uncertainty = False
+    uncertainty = True
 
     #####################################################
     # TRAIN / PREDICTION
@@ -54,22 +54,29 @@ if __name__ == '__main__':
        * predict (YieldMapPredictor.py:229)
        * modifyPrescription (YieldMapPredictor.py:176) 
     """
+    # DEFINE
     predictor = YieldMapPredictor(filename=filepath, field=fieldName, training_years=trainingYears, pred_year=predYear)
     # TRAIN
-    predictor.trainPreviousYears(modelType=modelName, batch_size=16, epochs=150, beta_=beta, print_process=printProcess)
+    predictor.trainPreviousYears(modelType=modelName, batch_size=batchSize, epochs=epochs, beta_=beta,
+                                 print_process=printProcess)
     # PREDICT
-    results = predictor.predict(modelType=modelName, uncertainty=True)
+    results = predictor.predict(modelType=modelName, uncertainty=uncertainty)
+    # PLOT
     if uncertainty:
+        y_map_QD, u_map_QD, l_map_QD, PI_map_QD = results
         plt.figure()
-        plt.imshow(results[0], vmin=0, vmax=150)
+        plt.imshow(y_map_QD, vmin=0, vmax=150)
+        plt.colorbar()
         plt.title("Prediction map")
         plt.axis("off")
         plt.figure()
-        plt.imshow(results[3], vmin=0, vmax=80)
+        plt.imshow(PI_map_QD, vmin=0, vmax=80)
+        plt.colorbar()
         plt.title("Uncertainty map (PI width)")
         plt.axis("off")
     else:
         plt.figure()
         plt.imshow(results, vmin=0, vmax=150)
+        plt.colorbar()
         plt.title("Prediction map")
         plt.axis("off")

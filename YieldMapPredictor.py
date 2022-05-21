@@ -217,7 +217,7 @@ class YieldMapPredictor:
         # Normalize outputs using the training set
         train_y, self.maxY, self.minY = utils.minMaxScale(train_y)
         # Save statistics
-        np.save('models/temp/field_statistics.npy', [self.maxs, self.mins, self.maxY, self.minY])
+        np.save('models\\temp\\' + self.field + '_statistics.npy', [self.maxs, self.mins, self.maxY, self.minY])
 
         self.model = self.init_model(modelType=modelType)  # Initialize ML model
         self.path_model = 'models/temp/' + self.modelType + "-" + self.field + "--Objective-" + objective
@@ -428,7 +428,7 @@ if __name__ == '__main__':
              'par13', 'par14']
     modelname = "Hyper3DNet"
     goal = 'yld'
-    # method = "GAM"
+    method = "GAM"
     # 10-fold cross validation
     RMSE = []
     prediction, target = None, None
@@ -442,7 +442,7 @@ if __name__ == '__main__':
         predictor = YieldMapPredictor(filename=filepath, field=fieldname, training_years=tyears, pred_year=pyear,
                                       cov=cvars)
         # Train and validate
-        # predictor.trainPreviousYears(epochs=500, batch_size=64, modelType=method, objective=goal)
+        predictor.trainPreviousYears(epochs=500, batch_size=64, modelType=method, objective=goal)
         prediction = np.clip(predictor.predict(modelType=modelname, objective=goal), a_min=0, a_max=2E4)
         # Compare to the ground-truth and calculate the RMSE
         target, _, _, _ = loadData(path=filepath, field=fieldname, year=10 - nt, cov=cvars, inpaint=True,
