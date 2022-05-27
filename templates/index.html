@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>OFPE-Prediction</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" />
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <style>
+        .tab {
+            display: inline-block;
+            width: 150px;
+        }
+        .customIndent {
+          padding-left: 170px;
+        }
+        * {
+          transition: all .2s ease;
+        }
+        .hovertext {
+          position: relative;
+          border-bottom: 1px dotted black;
+        }
+        .hovertext:before {
+          content: attr(data-hover);
+          visibility: hidden;
+          opacity: 0;
+          width: 300px;
+          background-color: black;
+          color: #fff;
+          text-align: center;
+          border-radius: 5px;
+          padding: 5px 0;
+          transition: opacity .2s ease-in-out;
+          position: absolute;
+          z-index: 1;
+          left: 0;
+          top: 110%;
+        }
+        .hovertext:hover:before {
+          opacity: 1;
+          visibility: visible;
+        }
+        .form-inline{
+          display:inline-block;
+        }
+        .error {
+            color: red
+        }
+        body {
+          background-image: url('https://img.freepik.com/free-vector/abstract-paper-hexagon-white-background_51543-7.jpg?size=626&ext=jpg');
+          background-repeat: repeat-x;
+          background-attachment: fixed;
+          background-size: cover;
+        }
+    </style>
+</head>
+
+<body>
+<h1 style="text-align: center">OFPE-Prediction: Prediction App using Machine Learning</h1>
+<div class="container">
+<div class="row">
+    <h3>Step 1: Current information/data pertaining to your field</h3>
+    <p style="margin-bottom:2ex;"> * Fields are mandatory! </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for category, message in messages %}
+            <p><span> <i class="icon-warning-sign"></i></span>
+            <span class="{{ category }}">{{ message }}</span></p>
+          {% endfor %}
+        {% endwith %}
+    &nbsp;
+
+    <link href="https://netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+
+    <form method="post" action="/" enctype="multipart/form-data">
+        <p>
+            <span class="tab"><label>&#8226; Input file (.CSV) *</label></span>
+            <span class = "form-inline"><input style="margin-bottom:1ex;" type="file" accept=".csv" name="file" class="form-control" autocomplete="off" required></span></p>
+        <p>
+            <span class="tab"><label for="fieldName">&#8226; Field Name *</label></span>
+            <input type="text" id="fieldName" name="fieldName" required minlength="1" maxlength="20" size="10">
+            <span class="hovertext" data-hover="Name of the specific field that will be analyzed">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p>
+            <span class="tab"><label for="trainingYears">&#8226; Training Years *</label></span>
+            <input type="text" id="trainingYears" name="trainingYears" required minlength="4" maxlength="20" size="10" placeholder="2017, 2019">
+            <span class="hovertext" data-hover="Declare the years of data that will be used for training (List)">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p>
+            <span class="tab"><label for="predYear">&#8226; Prediction Year *</label></span>
+            <input type="text" id="predYear" name="predYear" required minlength="4" maxlength="20" size="10" placeholder="2021">
+            <span class="hovertext" data-hover="The year that will be used for prediction">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p>
+            <span class="tab"><label for="objective">&#8226; Prediction Objective</label></span>
+            <input type="text" id="objective" name="objective" required maxlength="20" size="10" placeholder="yld" value="yld">
+            <span class="hovertext" data-hover="Name of the target variable. Default: 'yld' (yield). Other options: 'pro', 'EONR'">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <div>
+            <span class="tab"><label for="cov">&#8226; Covariates</label></span>
+            <input type="text" id="cov" name="cov" required maxlength="100" size="50"
+                   placeholder="aa_n, slope, elev, tpi, aspect_rad, prec_cy_d, vv_cy_f, vh_cy_f"
+                   value="aa_n, slope, elev, tpi, aspect_rad, prec_cy_d, vv_cy_f, vh_cy_f">
+            <span class="hovertext" data-hover="List of the covariate names that will be used for the analysis">
+            <i class="icon-info-sign"></i>
+            </span>
+            <p><span class="tab"></span> If available, we recommend using the following covariates:</p>
+            <ul class="customIndent">
+              <li>aa_n: As-applied nitrogen rate</li>
+              <li>slope: Terrain slope</li>
+              <li>tpi: Topographic position index</li>
+              <li>aspect_rad: Aspect in radians</li>
+              <li>prec_cy_d: 1km precipitation from previous year (mm) (daymet)</li>
+              <li>vv_cy_f: Vertical Transmit-Vertical Receive Polarization (VV) from Sentinel-1 satellite</li>
+              <li>vh_cy_f: Vertical Transmit-Horizontal Receive Polarization (VH) from Sentinel-1 satellite</li>
+            </ul>
+        </div>
+
+        &nbsp;
+        <h3>Step 2: Specify training parameters</h3>
+        &nbsp;
+        <p>
+            <span class="tab"><label for="modelName">&#8226; Model Name</label></span>
+            <select name="modelName" id="modelName">
+                <option value="Hyper3DNetQD">Hyper3DNetQD</option>
+                <option value="Hyper3DNet">Hyper3DNet</option>
+                <option value="3D-CNN">3D-CNN</option>
+                <option value="CNN-LF">CNN-LF</option>
+                <option value="AdaBoost">AdaBoost</option>
+                <option value="SAE">Stacked Autoencoder</option>
+                <option value="RF">Random Forest</option>
+                <option value="MLRegression">Linear Regression</option>
+            </select>
+            <span class="hovertext" data-hover="For a detailed comparison of the models, visit: ...">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p id="epochList">
+            <span class="tab"><label for="epochs">&#8226; Epochs</label></span>
+            <input type="text" id="epochs" name="epochs" required minlength="4" maxlength="20" size="10" placeholder="500" value="500">
+            <span class="hovertext" data-hover="Number of times that the learning algorithm will work through the entire training dataset. Usually, no more than 500">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p id="batchList">
+            <span class="tab"><label for="batchSize">&#8226; Batch size</label></span>
+            <select style="width: 110px" name="batchSize" id="batchSize">
+                <option value="32">32</option>
+                <option value="64">64</option>
+                <option value="96">96</option>
+                <option value="128">128</option>
+                <option value="256">256</option>
+            </select>
+            <span class="hovertext" data-hover="The number of data points that will be passed through to the neural network at one time.
+            The optimal batch size is different for each field and it can be found through tuning!">
+            <i class="icon-info-sign"></i>
+            </span>
+            <span class="tab"></span>Optional:
+            <input style="font-size : 10px; text-align: center; height:25px; background-color: #5DB85B; border-color: green" type="submit" value="Tune batch size" class="btn btn-info" name="tuneBatchSize">
+            <label for="batchTuned"></label><input type="text" minlength="4" maxlength="10" size="8" id="batchTuned" name="batchTuned" disabled>
+            <span class="hovertext" data-hover="The tuning process will select the batch size that returns the lowest prediction errors.
+            It will train the network using the first training years and will evaluate the network on the last training year. WARNING! This process can take a long time.">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p id="betaList">
+            <span class="tab"><label for="beta">&#8226; Beta</label></span>
+            <input type="text" id="beta" name="beta" required minlength="1" maxlength="20" size="10" placeholder="6" value="6">
+            <span class="hovertext" data-hover="Hyperparameter that balance the prediction interval width and probability coverage. Usually, between 5 and 10.">
+            <i class="icon-info-sign"></i>
+            </span>
+            <span class="tab"></span>Optional:
+            <input style="font-size : 10px; text-align: center; height:25px; background-color: #5DB85B; border-color: green" type="submit" value="Tune beta" class="btn btn-info" name="tuneBeta">
+            <label for="betaTuned"></label><input type="text" maxlength="5" size="8" id="betaTuned" name="batchTuned" disabled>
+            <span class="hovertext" data-hover="The tuning process will select the beta value that returns the narrowest prediction intervals with probability coverage of at least 90%.
+            It will train the network using the first training years and will evaluate the network on the last training year. WARNING! This process can take a long time.">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+
+        <script>
+            let model_select = document.getElementById("modelName");
+
+            model_select.onchange = function () {
+                const modelType = model_select.value;
+                if (modelType !== "Hyper3DNetQD"){
+                    document.getElementById("betaList").style.display = "none";
+                }
+                else {document.getElementById("betaList").style.display = "block";}
+
+                if (modelType !== "Hyper3DNet" && modelType !== "Hyper3DNetQD" &&
+                    modelType !== "3D-CNN" && modelType !== "CNN-LF" &&
+                    modelType !== "AdaBoost" && modelType !== "SAE"){
+                    document.getElementById("epochList").style.display = "none";
+                    document.getElementById("batchList").style.display = "none";
+                }
+                else {
+                    document.getElementById("epochList").style.display = "block";
+                    document.getElementById("batchList").style.display = "block";
+                }
+            }
+        </script>
+
+        &nbsp;
+        <h3>Step 3: Managing Uncertainty</h3>
+        &nbsp;
+        <p>
+            <input type="checkbox" id="uncertainty" name="uncertainty" checked>
+            <label for="uncertainty">Generate 90% prediction intervals</label>
+            <span class="hovertext" data-hover="If checked, we generate a prediction
+                         map, the upper bounds, the lower bounds, and the uncertainty map. Otherwise, we only generate a
+                         prediction map without uncertainty quantification. NOTE: Generating the prediction intervals
+                         takes a few more minutes of processing.">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+
+
+<!--    Start PREDICTION!!-->
+        <p>
+            <input style="background-color: #5DB85B; border-color: green" type="submit" value="Start Prediction" class="btn btn-info" name="predict">
+        </p>
+        <b style="color: green">Don't worry, we're not saving your data when you submit this form!</b>
+    </form>
+
+
+    {% if filename %}
+
+        &nbsp;
+        <h3>Step 4: Check Results</h3>
+        &nbsp;
+        <label>The predicted yield map was successfully generated and its preview is displayed below</label>
+        <div>
+            <img src="{{ url_for('display_image', filename=filename) }}" alt="Generated Prediction Map">
+        </div>
+        <p>
+            <input style="background-color: #5DB85B; border-color: green" type="submit" value="Download shapefiles" class="btn btn-info" name="shapefile">
+        </p>
+    {% endif %}
+
+</div>
+</div>
+</body>
+</html>

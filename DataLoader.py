@@ -102,7 +102,7 @@ def autopatches(data, window=5, overlap=.75, plot=False):
 def loadData(path=None, obj='yld', year=2018, field='', cov=None, mode='AggRADARPrec', inpaint=True,
              inpaint_features=False, base_N=120, read_column=False, test=False):
     """Load aggregated data in .CSV format and Sentinel-1 images
-    @param path: Specify the absolute path of the CSV file that will be read.
+    @param path: Specify the absolute path of the CSV file that will be read. It can be also a FileStorage object.
     @param obj: Specify the type of target that will be evaluated. Options: 'yld', 'pro'.
     @param year: Year that will be evaluated. Options: '2016', '2017', '2018', '2019', or '2020'.
     @param field: Field that will be evaluated.
@@ -134,8 +134,11 @@ def loadData(path=None, obj='yld', year=2018, field='', cov=None, mode='AggRADAR
         covB = cov
 
     # Read the data file to know the original dimensions
-    data = pd.read_csv(path, low_memory=False)
-    df = pd.DataFrame(data)
+    if isinstance(path, str):
+        data = pd.read_csv(path, low_memory=False)
+        df = pd.DataFrame(data)
+    else:
+        df = path
     # In addition to the selected features, we also read the coordinates, the year, and the desired target
     if not test:
         df = df[covB + ['x', 'y', 'year', 'field', 'cell_id', obj]]
@@ -270,7 +273,7 @@ def inpainting(M):
 #######################################################################################################################
 class DataLoader:
 
-    def __init__(self, filename: str, field: str, training_years: list, pred_year: int, mode="AggRADARPrec", cov=None):
+    def __init__(self, field: str, training_years: list, pred_year: int, mode="AggRADARPrec", cov=None, filename=None):
         """Initialize data loader class
         @param filename: Path containing the data (CSV)
         @param field: Name of the specific field that will be analyzed.

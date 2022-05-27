@@ -36,8 +36,8 @@ Main Class Definition
 class YieldMapPredictor:
     """Class used to predict an entire yield map using on a previously trained model."""
 
-    def __init__(self, filename: str, field: str, training_years: list, pred_year: int, data_mode="AggRADARPrec",
-                 cov=None):
+    def __init__(self, field: str, training_years: list, pred_year: int, data_mode="AggRADARPrec",
+                 cov=None, filename=None):
         """
         @param filename: Path containing the data (CSV)
         @param field: Name of the specific field that will be analyzed.
@@ -72,7 +72,7 @@ class YieldMapPredictor:
         self.minY = None
 
         # Initialize data loader object
-        self.dataLoader = DataLoader.DataLoader(filename, field=field, training_years=training_years,
+        self.dataLoader = DataLoader.DataLoader(filename=filename, field=field, training_years=training_years,
                                                 pred_year=pred_year, mode=data_mode, cov=cov)
 
     def init_model(self, modelType: str):
