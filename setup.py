@@ -14,6 +14,7 @@ setuptools.setup(
     url='https://github.com/GiorgioMorales/OFPETool',
     project_urls={"Bug Tracker": "https://github.com/GiorgioMorales/OFPETool/issues"},
     license='MIT',
+    package_dir={"": "src"},
     packages=setuptools.find_packages('src', exclude=['test']),
     install_requires=['requests'],
 )
