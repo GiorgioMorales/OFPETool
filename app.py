@@ -2,9 +2,8 @@ import os
 import shutil
 import numpy as np
 import pandas as pd
-import YieldMapPredictor
+from src.Predictor import YieldMapPredictor
 import matplotlib.pyplot as plt
-from werkzeug.utils import secure_filename
 from flask import Flask, flash, request, redirect, url_for, render_template, send_file
 
 
@@ -214,11 +213,6 @@ def download_file(filename):
         return send_file((os.path.dirname(predictor.path_model) + '_Shapefile').replace('Model-', '') + '.zip', as_attachment=True)
     else:
         return send_file(os.path.dirname(predictor.path_model) + '.zip', as_attachment=True)
-
-# @app.route('/download')
-# def download_model():
-#     print("I WAS HEREEE")
-#     return send_file(os.path.dirname(predictor.path_model) + '.zip', as_attachment=True)
 
 
 ######################################################################################

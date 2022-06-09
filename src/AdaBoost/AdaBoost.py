@@ -1,4 +1,4 @@
-from AdaBoost.FFNN import *
+from src.AdaBoost.FFNN import *
 import numpy as np
 from sklearn import preprocessing
 from sklearn.model_selection import KFold

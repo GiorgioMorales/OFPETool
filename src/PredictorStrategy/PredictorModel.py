@@ -1,10 +1,10 @@
 import sys
-from PredictorStrategy.RFStrategy import RFStrategy
-from PredictorStrategy.SAEStrategy import SAEStrategy
-from PredictorStrategy.GAMStrategy import GAMStrategy
-from PredictorStrategy.AdaBoostStrategy import AdaBoostStrategy
-from PredictorStrategy.SpatialCNNStrategy import SpatialCNNStrategy
-from PredictorStrategy.MLRegressionStrategy import MLRegressionStrategy
+from src.PredictorStrategy.RFStrategy import RFStrategy
+from src.PredictorStrategy.SAEStrategy import SAEStrategy
+from src.PredictorStrategy.GAMStrategy import GAMStrategy
+from src.PredictorStrategy.AdaBoostStrategy import AdaBoostStrategy
+from src.PredictorStrategy.SpatialCNNStrategy import SpatialCNNStrategy
+from src.PredictorStrategy.MLRegressionStrategy import MLRegressionStrategy
 
 
 class PredictorModel:

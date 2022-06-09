@@ -1,9 +1,9 @@
-import utils
+from src.Predictor import utils
 import random
 import pickle
 import numpy as np
 from pygam import GammaGAM
-from PredictorStrategy.PredictorInterface import PredictorInterface
+from src.PredictorStrategy.PredictorInterface import PredictorInterface
 
 
 class GAMStrategy(PredictorInterface):

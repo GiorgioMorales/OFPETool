@@ -1,13 +1,13 @@
 import os
 import sys
-import utils
+from src.Predictor import utils
 import torch
 import pickle
 import random
 from tqdm import trange
-from models.networks import *
-from models.modelObject import *
-from PredictorStrategy.PredictorInterface import PredictorInterface
+from src.PredictorStrategy.networks import *
+from src.PredictorStrategy.modelObject import *
+from src.PredictorStrategy.PredictorInterface import PredictorInterface
 
 np.random.seed(seed=7)  # Initialize seed to get reproducible results
 random.seed(7)

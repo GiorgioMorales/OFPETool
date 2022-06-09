@@ -1,8 +1,8 @@
-import utils
+from src.Predictor import utils
 import numpy as np
 import matplotlib.pyplot as plt
-from DataLoader import loadData
-from YieldMapPredictor import YieldMapPredictor
+from src.Predictor.DataLoader import loadData
+from src.Predictor.YieldMapPredictor import YieldMapPredictor
 
 if __name__ == '__main__':
     #####################################################

@@ -1,14 +1,13 @@
 import os
 import sys
 import torch
-import utils
+from src.Predictor import utils, DataLoader
 import pickle
-import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
-from DataLoader import loadData
+from src.Predictor.DataLoader import loadData
 from scipy.interpolate import splrep, splev
-from PredictorStrategy.PredictorModel import PredictorModel
+from src.PredictorStrategy.PredictorModel import PredictorModel
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -223,10 +222,10 @@ class YieldMapPredictor:
         # Normalize outputs using the training set
         train_y, self.maxY, self.minY = utils.minMaxScale(train_y)
         # Save statistics
-        np.save('models\\temp\\' + self.field + '_statistics.npy', [self.maxs, self.mins, self.maxY, self.minY])
+        np.save('output\\' + self.field + '_statistics.npy', [self.maxs, self.mins, self.maxY, self.minY])
 
         self.model = self.init_model(modelType=modelType)  # Initialize ML model
-        self.path_model = 'models/temp/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
+        self.path_model = 'output/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
                           '/' + self.modelType + "-" + self.field + "--Objective-" + objective
         if not os.path.exists(os.path.dirname(self.path_model)):
             os.mkdir(os.path.dirname(self.path_model))
@@ -254,7 +253,7 @@ class YieldMapPredictor:
         print("Loading model...")
         if model_path is None:
             # If the model and the statistics are not provided, check if they are in the temp file
-            self.path_model = 'models/temp/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
+            self.path_model = 'output/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
                           '/' + self.modelType + "-" + self.field + "--Objective-" + objective
             if os.path.exists(self.path_model):
                 self.model.loadModel(path=self.path_model)
@@ -266,7 +265,7 @@ class YieldMapPredictor:
         # In case the statistics are not provided, read the training set to calculate the statistics
         if stats_path is None:
             # Try to check if there's a file in the temp folder with the statistics of the field
-            stats_path = 'models\\temp\\' + self.field + '_statistics.npy'
+            stats_path = 'output\\' + self.field + '_statistics.npy'
             if os.path.exists(stats_path):
                 [self.maxs, self.mins, self.maxY, self.minY] = np.load(stats_path, allow_pickle=True)
             else:  # Or calculate them
