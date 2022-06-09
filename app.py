@@ -1,9 +1,11 @@
+import os
+import shutil
 import numpy as np
 import pandas as pd
 import YieldMapPredictor
 import matplotlib.pyplot as plt
 from werkzeug.utils import secure_filename
-from flask import Flask, flash, request, redirect, url_for, render_template
+from flask import Flask, flash, request, redirect, url_for, render_template, send_file
 
 
 app = Flask(__name__)
@@ -145,7 +147,6 @@ def buttons():
             uncertainty = True
             if request.form.get('uncertainty') is None:
                 uncertainty = False
-                flash("asadadad")
 
             #######################################################################
             # If the filename is valid, create a YieldMapPredictor an read the file
@@ -197,6 +198,27 @@ def buttons():
                 colorize(filename)
 
             return render_template('index.html', filename=filename)
+
+    ###################################################################################################################
+    # DOWNLOAD BUTTONS
+    ###################################################################################################################
+
+
+@app.route('/download/<path:filename>', methods=['GET', 'POST'])
+def download_file(filename):
+    print(filename)
+    shapePath = (os.path.dirname(predictor.path_model) + '_Shapefile').replace('Model-', '')
+    shutil.make_archive(shapePath, 'zip', shapePath)
+    shutil.make_archive(os.path.dirname(predictor.path_model), 'zip', os.path.dirname(predictor.path_model))
+    if filename == 'shapefile':
+        return send_file((os.path.dirname(predictor.path_model) + '_Shapefile').replace('Model-', '') + '.zip', as_attachment=True)
+    else:
+        return send_file(os.path.dirname(predictor.path_model) + '.zip', as_attachment=True)
+
+# @app.route('/download')
+# def download_model():
+#     print("I WAS HEREEE")
+#     return send_file(os.path.dirname(predictor.path_model) + '.zip', as_attachment=True)
 
 
 ######################################################################################

@@ -76,6 +76,48 @@
         <p>
             <span class="tab"><label>&#8226; Input file (.CSV) *</label></span>
             <span class = "form-inline"><input style="margin-bottom:1ex;" type="file" accept=".csv" name="file" class="form-control" autocomplete="off" required></span></p>
+        <p id="loadModel">
+            <span class="tab"><label>&#8226; Load trained model (.zip)</label></span>
+            <span class = "form-inline"><input style="margin-bottom:1ex;" type="file" accept=".zip" id="modelFile" name="modelFile" class="form-control" autocomplete="off"></span>
+            <span class="hovertext" data-hover="Load a previously trained model that will be used for prediction.">
+            <i class="icon-info-sign"></i>
+            </span></p>
+        <p id="removeModel">
+            <button style="font-size : 10px; text-align: center; height:25px; background-color: #5DB85B; border-color: green" id="removeModelB">Remove loaded model</button> </p>
+
+        <script>
+            let model_select = document.getElementById("loadModel");
+            let model_select2 = document.getElementById("modelFile");
+            const button = document.getElementById("removeModelB");
+            document.getElementById("removeModel").style.display = "none";
+
+            model_select.addEventListener('change', (event) => {
+                document.getElementById("removeModel").style.display = "block"; // Show Remove button
+                document.getElementById("sec3").textContent = "Step 2: Managing Uncertainty";
+                document.getElementById("sec4").textContent = "Step 3: Check Results";
+                // Enable training parameters
+                document.getElementById("sec2").style.display = "none";
+                document.getElementById("typeModel").style.display = "none";
+                document.getElementById("epochList").style.display = "none";
+                document.getElementById("batchList").style.display = "none";
+                document.getElementById("betaList").style.display = "none";
+            });
+
+            button.addEventListener("click", function() {
+                // alert(model_select.value);
+                document.getElementById("modelFile").value = null;
+                document.getElementById("removeModel").style.display = "none";
+                document.getElementById("sec3").textContent = "Step 3: Managing Uncertainty";
+                document.getElementById("sec4").textContent = "Step 4: Check Results";
+                // Enable training parameters
+                document.getElementById("sec2").style.display = "block";
+                document.getElementById("typeModel").style.display = "block";
+                document.getElementById("epochList").style.display = "block";
+                document.getElementById("batchList").style.display = "block";
+                document.getElementById("betaList").style.display = "block";
+            });
+        </script>
+
         <p>
             <span class="tab"><label for="fieldName">&#8226; Field Name *</label></span>
             <input type="text" id="fieldName" name="fieldName" required minlength="1" maxlength="20" size="10">
@@ -125,9 +167,9 @@
         </div>
 
         &nbsp;
-        <h3>Step 2: Specify training parameters</h3>
+        <h3 id="sec2">Step 2: Specify training parameters</h3>
         &nbsp;
-        <p>
+        <p id="typeModel">
             <span class="tab"><label for="modelName">&#8226; Model Name</label></span>
             <select name="modelName" id="modelName">
                 <option value="Hyper3DNetQD">Hyper3DNetQD</option>
@@ -210,7 +252,7 @@
         </script>
 
         &nbsp;
-        <h3>Step 3: Managing Uncertainty</h3>
+        <h3 id="sec3">Step 3: Managing Uncertainty</h3>
         &nbsp;
         <p>
             <input type="checkbox" id="uncertainty" name="uncertainty" checked>
@@ -235,14 +277,22 @@
     {% if filename %}
 
         &nbsp;
-        <h3>Step 4: Check Results</h3>
+        <h3 id="sec4">Step 4: Check Results</h3>
         &nbsp;
         <label>The predicted yield map was successfully generated and its preview is displayed below</label>
         <div>
             <img src="{{ url_for('display_image', filename=filename) }}" alt="Generated Prediction Map">
         </div>
         <p>
-            <input style="background-color: #5DB85B; border-color: green" type="submit" value="Download shapefiles" class="btn btn-info" name="shapefile">
+            <script>let st1 = "{{ url_for('.download_file', filename='shapefile') }}";
+                    let st2 = "{{ url_for('.download_file', filename='model') }}"
+            </script>
+            <input style="background-color: #5DB85B; border-color: green" type="submit"
+                   value="Download shapefiles" class="btn btn-info" name="shapefile"
+                   onclick="window.location.href = st1;">
+            <span> <input style="background-color: #5DB85B; border-color: green" type="submit"
+                          value="Download trained model" class="btn btn-info" name="model"
+                          onclick="window.location.href = st2;"> </span>
         </p>
     {% endif %}
 

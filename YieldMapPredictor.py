@@ -7,6 +7,7 @@ import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 from DataLoader import loadData
+from scipy.interpolate import splrep, splev
 from PredictorStrategy.PredictorModel import PredictorModel
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -94,18 +95,23 @@ class YieldMapPredictor:
 
         return PredictorModel(self.modelType, self.device, self.nbands, self.windowSize, self.outputSize)
 
-    def load_pred_data(self, objective):
+    def load_pred_data(self, objective, modifyNRate=None, clearBorder=True):
         """Load and prepare the data that will be used for prediction"""
         # Load the entire yield map and the features of the selected year
         self.data, self.cellids, self.coords = self.dataLoader.load_raster(objective=objective)
         self.nbands = self.data.shape[2]  # Stores the number of features in the dataset.
         self.prev_n = self.data[:, :, 0].copy()  # Save for plotting later in case new prescription maps are used.
 
+        # Modify N map using an uniform N rate
+        if modifyNRate is not None:
+            self.modifyPrescription(method='uniform', n_rate=modifyNRate)
+
         # Obtain a binary mask of the field (mask==1: field, mask==0: out of the field)
         self.mask_field = (self.data[:, :, 2] * 0).astype(np.uint8)  # The elevation raster is used as a reference.
         self.mask_field[np.where(self.data[:, :, 2] != 0)] = 1  # There is field where the value is different than 0
         self.mask_field[np.where(self.data[:, :, 0] == -1)] = 0  # Remove from analysis points with missing N values
-        self.mask_field = clear_border(self.mask_field, 0)
+        if clearBorder:
+            self.mask_field = clear_border(self.mask_field, 0)
 
     def extract2DPatches(self):
         """Extract patches that will be analyzed by the CNN and their corresponding center positions"""
@@ -173,7 +179,7 @@ class YieldMapPredictor:
 
         return patches, centers
 
-    def modifyPrescription(self, presc_path: str, method='uniform', n_rate=None):
+    def modifyPrescription(self, presc_path=None, method='uniform', n_rate=None):
         """Used a modified prescription map before predicting yield.
         @param presc_path: Path of the prescription map.
         @param method: Options: 'FEAMOO', 'CCEAMOO', 'NSGA2', 'uniform'.
@@ -220,30 +226,36 @@ class YieldMapPredictor:
         np.save('models\\temp\\' + self.field + '_statistics.npy', [self.maxs, self.mins, self.maxY, self.minY])
 
         self.model = self.init_model(modelType=modelType)  # Initialize ML model
-        self.path_model = 'models/temp/' + self.modelType + "-" + self.field + "--Objective-" + objective
+        self.path_model = 'models/temp/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
+                          '/' + self.modelType + "-" + self.field + "--Objective-" + objective
+        if not os.path.exists(os.path.dirname(self.path_model)):
+            os.mkdir(os.path.dirname(self.path_model))
 
         # Train the model using the current training-validation split
         return self.model.trainPrevious(trainx, train_y, batch_size, epochs, self.path_model, print_process,
                                         beta_=beta_, yscale=[self.maxY, self.minY])
 
     def predict(self, uncertainty=False, stats_path=None, model_path=None, modelType='Hyper3DNet',
-                     objective='yld'):
+                     objective='yld', Nrate=None, clearBorder=False):
         """Predict the yield map using a sliding window.
         @param uncertainty: If True, calculate and return prediction intervals.
         @param stats_path: Path that contains the statistics of the training set.
         @param model_path: Path that contains the trained model (Optional. Otherwise, the model needs to be trained).
         @param modelType: Name of the model that will be used. Options: 'Hyper3DNet', 'Hyper3DNetQD', 'AdaBoost',
                           'Russello', 'CNNLF', 'SAE', 'RF', 'GAM', and 'MLRegression'.
-        @param objective: Name of the target. Default: 'yld' (Yield)."""
+        @param objective: Name of the target. Default: 'yld' (Yield).
+        @param Nrate: If not None, it is the uniform N rate used for prediction.
+        @param clearBorder: If True, remove the predictions from the borders to avoid uncertain results"""
 
-        self.load_pred_data(objective=objective)  # Load prediction data
+        self.load_pred_data(objective=objective, modifyNRate=Nrate, clearBorder=clearBorder)  # Load prediction data
 
         # Load model if there is one
         self.model = self.init_model(modelType=modelType)  # Initialize ML model
         print("Loading model...")
         if model_path is None:
             # If the model and the statistics are not provided, check if they are in the temp file
-            self.path_model = 'models/temp/' + modelType + '-' + self.field + "--Objective-" + objective
+            self.path_model = 'models/temp/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
+                          '/' + self.modelType + "-" + self.field + "--Objective-" + objective
             if os.path.exists(self.path_model):
                 self.model.loadModel(path=self.path_model)
             else:
@@ -399,7 +411,8 @@ class YieldMapPredictor:
         else:
             results = [yield_vector]
         coords = [cr for cr in coords if cr is not None]
-        utils.createShapefile(coords=coords, columns=results, filepath=self.path_model + '_Shapefile', obj=objective)
+        shapepath = (os.path.dirname(self.path_model) + '_Shapefile').replace('Model-', '')
+        utils.createShapefile(coords=coords, columns=results, filepath=shapepath, obj=objective)
 
         # Return yield map
         if not uncertainty:
@@ -416,6 +429,62 @@ class YieldMapPredictor:
                 PI_map *= 1.96
                 return yield_map, yield_map + PI_map, yield_map - PI_map, PI_map * 2
 
+    def NvsY_generation(self, n_min=0, n_max=150, n_samples=30, uncertainty=False):
+        """Predict the yield map using n_rates = [n_min, n_min + 5, ... , n_max]"""
+
+        ymaps = np.zeros((self.data.shape[0], self.data.shape[1], n_samples))
+        y_u = np.zeros((self.data.shape[0], self.data.shape[1], n_samples))
+        y_l = np.zeros((self.data.shape[0], self.data.shape[1], n_samples))
+        for i, n in enumerate(range(n_min, n_max, int((n_max - n_min) / n_samples))):
+            print("Predicting for N rate = " + str(n))
+            y_map = self.predict(uncertainty=uncertainty, Nrate=n)
+            if not uncertainty:
+                ymaps[:, :, i] = y_map
+            else:
+                ymaps[:, :, i] = y_map[0]
+                y_u[:, :, i] = y_map[1]
+                y_l[:, :, i] = y_map[2]
+
+        if uncertainty:
+            return [ymaps, y_u, y_l]
+        else:
+            return [ymaps]
+
+    def EONR(self, pC, pN, n_min=0, n_max=150, n_samples=150):
+        """Simple first derivative method used to calculate the economic optimal net return (EONR)
+        @param pC: price of the crop.
+        @param pN: price of he N fertilizer
+        @param n_min: Initial N rate use for the NvsY curve generation.
+        @param n_max: Final N rate use for the NvsY curve generation.
+        @param n_samples: Number of samples used for the NvsY curve generation"""
+
+        # Obtain the yield prediction using different N rates
+        ymaps = self.NvsY_generation(n_min, n_max, n_samples, uncertainty=False)[0]
+
+        EONR = np.zeros((ymaps.shape[0], ymaps.shape[1]))
+
+        # Repeat for each point in the field
+        for x in range(ymaps.shape[0]):
+            for y in range(ymaps.shape[1]):
+                if sum(ymaps[x, y, :]) > 0:  # Check if it's a point of the field
+                    # Calculate net return and price of fertilizer
+                    Nrates = np.arange(n_min, n_max, int((n_max - n_min) / n_samples))
+                    norm_min = np.min(ymaps[x, y, :])
+                    norm_max = np.max(ymaps[x, y, :])
+                    norm_data = (ymaps[x, y, :] - norm_min) / (norm_max - norm_min)
+                    f = splrep(Nrates, norm_data, k=5, s=11)
+                    smooth_data = splev(Nrates, f)
+                    smooth_data = smooth_data * (norm_max - norm_min) + norm_min
+                    NR = pC * smooth_data - pN * Nrates
+
+                    # Calculate first derivative
+                    dP = np.diff(NR) / np.diff(Nrates)
+
+                    # Check where the derivative is higher or equal than pN
+                    eonrs = np.where(dP >= pN)[0]
+                    EONR[x, y] = eonrs[-1]  # Keep the last point with derivative higher than pN (max yield)
+        return EONR
+
 
 if __name__ == '__main__':
 
@@ -428,9 +497,8 @@ if __name__ == '__main__':
              'par13', 'par14']
     modelname = "Hyper3DNet"
     goal = 'yld'
-    method = "GAM"
     # 10-fold cross validation
-    RMSE = []
+    RMSE, RMSE_EONR = [], []
     prediction, target = None, None
     for nt in range(10):
         print("************************************************************************************************")
@@ -442,13 +510,22 @@ if __name__ == '__main__':
         predictor = YieldMapPredictor(filename=filepath, field=fieldname, training_years=tyears, pred_year=pyear,
                                       cov=cvars)
         # Train and validate
-        predictor.trainPreviousYears(epochs=500, batch_size=64, modelType=method, objective=goal)
+        # predictor.trainPreviousYears(epochs=500, batch_size=64, modelType=modelname, objective=goal)
         prediction = np.clip(predictor.predict(modelType=modelname, objective=goal), a_min=0, a_max=2E4)
         # Compare to the ground-truth and calculate the RMSE
         target, _, _, _ = loadData(path=filepath, field=fieldname, year=10 - nt, cov=cvars, inpaint=True,
                                    inpaint_features=False, base_N=120, test=False, obj=goal)
         RMSE.append(utils.mse(prediction, target) ** .5)
         print("Validation RMSE = " + str(RMSE[nt]))
+
+        # Estimate the EONR and compare it to the ground-truth
+        EONR_est = predictor.EONR(pC=0.246063, pN=2.204624, n_min=0, n_max=260, n_samples=260)
+        # Compare to the ground-truth and calculate the RMSE
+        EONR_target, _, _, _ = loadData(path=filepath, field=fieldname, year=10 - nt, cov=cvars, inpaint=True,
+                                        inpaint_features=False, base_N=120, test=False, obj='EONR')
+        RMSE_EONR.append(utils.mse(EONR_est, EONR_target) ** .5)
+        print("EONR Validation RMSE = " + str(RMSE_EONR[nt]))
+
     # Plot lat results for reference
     plt.figure()
     plt.imshow(prediction)

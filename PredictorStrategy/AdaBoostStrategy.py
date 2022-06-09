@@ -98,7 +98,7 @@ class AdaBoostStrategy(PredictorInterface):
         self.model.ab.model_weights = w
 
         # Load the individual models of the ensemble
-        self.folder_models = os.path.dirname(path) + "//models" + path[-1]  # Last letter indicates the split
+        self.folder_models = os.path.dirname(path) + "//weakModels"
         self.model.ab.weak_models = []  # Reset instance variable
         for m in range(self.nr_models):
             model = FFNN(None, learning_rate=None, batch_size=None)

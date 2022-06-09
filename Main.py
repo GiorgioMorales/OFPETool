@@ -22,7 +22,7 @@ if __name__ == '__main__':
                 will be used for the analysis. Ex: ['N', 'NDVI', 'elev']
     @param modelName: Options: 'Hyper3DNet', 'Hyper3DNetQD', 'AdaBoost', 'Russello', 'CNNLF', 'SAE', 'RF', 'GAM', and 
                       'MLRegression'. Note that 'Hyper3DNet' uses a single CNN for prediction. On the other hand, 
-                      'Hyper3DNetQD' uses two CNNs to generate point estimates as well as the upper and lower bounds
+                      'Hyper3DNetQD' uses two CNNs to generate target estimates as well as the upper and lower bounds
                       
     Training parameters:***********************************************************************************************
     @param batchSize: Recommended for sec35middle=128. Recommended for henrys=32.

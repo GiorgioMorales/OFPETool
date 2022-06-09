@@ -304,15 +304,15 @@ class SpatialCNNStrategy(PredictorInterface):
         # Save model
         with open(filepath + '_validationMSE', 'wb') as fil:
             pickle.dump(val_mse, fil)
-        # Save history
-        np.save(filepath + '_historyMSEtr', MSEtr)
-        np.save(filepath + '_historyMSE', MSE)
-        if self.method == 'Hyper3DNetQD' or \
-                self.method == 'Hyper3DNetQDPearce':  # Average upper and lower limit to obtain expected output
-            np.save(filepath + '_historyMPIWtr', MPIWtr)
-            np.save(filepath + '_historyPICPtr', PICPtr)
-            np.save(filepath + '_historyMPIW', MPIW)
-            np.save(filepath + '_historyPICP', PICP)
+        # Save history (Not needed for the final user)
+        # np.save(filepath + '_historyMSEtr', MSEtr)
+        # np.save(filepath + '_historyMSE', MSE)
+        # if self.method == 'Hyper3DNetQD' or \
+        #         self.method == 'Hyper3DNetQDPearce':  # Average upper and lower limit to obtain expected output
+        #     np.save(filepath + '_historyMPIWtr', MPIWtr)
+        #     np.save(filepath + '_historyPICPtr', PICPtr)
+        #     np.save(filepath + '_historyMPIW', MPIW)
+        #     np.save(filepath + '_historyPICP', PICP)
 
         return MPIW, PICP, MSE
 
