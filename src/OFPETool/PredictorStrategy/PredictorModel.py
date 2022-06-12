@@ -3,7 +3,7 @@ from ..PredictorStrategy.RFStrategy import RFStrategy
 from ..PredictorStrategy.SAEStrategy import SAEStrategy
 from ..PredictorStrategy.GAMStrategy import GAMStrategy
 from ..PredictorStrategy.AdaBoostStrategy import AdaBoostStrategy
-from ..PredictorStrategy import SpatialCNNStrategy
+from ..PredictorStrategy.SpatialCNNStrategy import SpatialCNNStrategy
 from ..PredictorStrategy.MLRegressionStrategy import MLRegressionStrategy
 
 
