@@ -16,6 +16,6 @@ setuptools.setup(
     license='MIT',
     package_dir={"": "src"},
     packages=setuptools.find_packages('src', exclude=['test']),
-    install_requires=['<matplotlib>', '<numpy>', '<pygam>', '<torch>', '<torchvision>', '<keras>', '<sklearn>',
-                      '<scipy>'],
+    install_requires=['matplotlib', 'numpy', 'pygam', 'torch', 'torchvision', 'keras', 'sklearn',
+                      'scipy'],
 )
