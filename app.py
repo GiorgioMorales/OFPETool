@@ -2,7 +2,7 @@ import os
 import shutil
 import numpy as np
 import pandas as pd
-from src.Predictor import YieldMapPredictor
+from src.OFPETool.Predictor import YieldMapPredictor
 import matplotlib.pyplot as plt
 from flask import Flask, flash, request, redirect, url_for, render_template, send_file
 
