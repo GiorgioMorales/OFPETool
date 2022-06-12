@@ -1,9 +1,9 @@
-from src.OFPETool.Predictor import utils
+from ..Predictor import utils
 import random
 import pickle
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from src.OFPETool.PredictorStrategy.PredictorInterface import PredictorInterface
+from ..PredictorStrategy.PredictorInterface import PredictorInterface
 
 
 class MLRegressionStrategy(PredictorInterface):

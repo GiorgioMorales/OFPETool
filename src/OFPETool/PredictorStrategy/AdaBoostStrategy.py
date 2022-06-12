@@ -1,13 +1,13 @@
 import os
-from src.OFPETool.Predictor import utils
+from ..Predictor import utils
 import random
 import pickle
-from src.OFPETool.AdaBoost import FFNN
+from ..AdaBoost.FFNN import FFNN
 from keras.models import load_model
-from src.OFPETool.AdaBoost import AdaBoost
-from src.OFPETool.PredictorStrategy.networks import *
-from src.OFPETool.PredictorStrategy.modelObject import *
-from src.OFPETool.PredictorStrategy.PredictorInterface import PredictorInterface
+from ..AdaBoost.AdaBoost import AdaBoost
+from ..PredictorStrategy.networks import *
+from ..PredictorStrategy.modelObject import *
+from ..PredictorStrategy.PredictorInterface import PredictorInterface
 
 
 class AdaBoostStrategy(PredictorInterface):

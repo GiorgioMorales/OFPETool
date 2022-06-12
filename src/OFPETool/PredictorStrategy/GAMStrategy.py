@@ -1,9 +1,9 @@
-from src.OFPETool.Predictor import utils
+from ..Predictor import utils
 import random
 import pickle
 import numpy as np
 from pygam import GammaGAM
-from src.OFPETool.PredictorStrategy.PredictorInterface import PredictorInterface
+from ..PredictorStrategy.PredictorInterface import PredictorInterface
 
 
 class GAMStrategy(PredictorInterface):
