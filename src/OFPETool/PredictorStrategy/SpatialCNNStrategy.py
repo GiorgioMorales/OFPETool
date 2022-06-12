@@ -1,13 +1,13 @@
 import os
 import sys
-from src.OFPETool.Predictor import utils
+from ..Predictor import utils
 import torch
 import pickle
 import random
 from tqdm import trange
-from src.OFPETool.PredictorStrategy.networks import *
-from src.OFPETool.PredictorStrategy.modelObject import *
-from src.OFPETool.PredictorStrategy.PredictorInterface import PredictorInterface
+from ..PredictorStrategy.networks import *
+from ..PredictorStrategy.modelObject import *
+from ..PredictorStrategy.PredictorInterface import PredictorInterface
 
 np.random.seed(seed=7)  # Initialize seed to get reproducible results
 random.seed(7)

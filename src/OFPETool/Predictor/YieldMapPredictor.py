@@ -1,13 +1,13 @@
 import os
 import sys
 import torch
-from src.OFPETool.Predictor import utils, DataLoader
+from ..Predictor import utils, DataLoader
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-from src.OFPETool.Predictor.DataLoader import loadData
+from ..Predictor.DataLoader import loadData
 from scipy.interpolate import splrep, splev
-from src.OFPETool.PredictorStrategy import PredictorModel
+from ..PredictorStrategy.PredictorModel import PredictorModel
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

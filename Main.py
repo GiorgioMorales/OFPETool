@@ -2,7 +2,7 @@ from src.OFPETool.Predictor import utils
 import numpy as np
 import matplotlib.pyplot as plt
 from src.OFPETool.Predictor.DataLoader import loadData
-from src.OFPETool.Predictor import YieldMapPredictor
+from src.OFPETool.Predictor.YieldMapPredictor import YieldMapPredictor
 
 if __name__ == '__main__':
     #####################################################

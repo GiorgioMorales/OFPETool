@@ -1,10 +1,10 @@
 import sys
-from src.OFPETool.PredictorStrategy.RFStrategy import RFStrategy
-from src.OFPETool.PredictorStrategy.SAEStrategy import SAEStrategy
-from src.OFPETool.PredictorStrategy.GAMStrategy import GAMStrategy
-from src.OFPETool.PredictorStrategy.AdaBoostStrategy import AdaBoostStrategy
-from src.OFPETool.PredictorStrategy import SpatialCNNStrategy
-from src.OFPETool.PredictorStrategy.MLRegressionStrategy import MLRegressionStrategy
+from ..PredictorStrategy.RFStrategy import RFStrategy
+from ..PredictorStrategy.SAEStrategy import SAEStrategy
+from ..PredictorStrategy.GAMStrategy import GAMStrategy
+from ..PredictorStrategy.AdaBoostStrategy import AdaBoostStrategy
+from ..PredictorStrategy import SpatialCNNStrategy
+from ..PredictorStrategy.MLRegressionStrategy import MLRegressionStrategy
 
 
 class PredictorModel:
