@@ -1,10 +1,9 @@
 import sys
 from ..PredictorStrategy.RFStrategy import RFStrategy
-from ..PredictorStrategy.SAEStrategy import SAEStrategy
 from ..PredictorStrategy.GAMStrategy import GAMStrategy
-from ..PredictorStrategy.AdaBoostStrategy import AdaBoostStrategy
 from ..PredictorStrategy.SpatialCNNStrategy import SpatialCNNStrategy
 from ..PredictorStrategy.MLRegressionStrategy import MLRegressionStrategy
+from ..PredictorStrategy.BayesRegressionStrategy import BayesRegressionStrategy
 
 
 class PredictorModel:
@@ -27,18 +26,16 @@ class PredictorModel:
         # Set the CrossValStrategy that the model will use
         if model in ['Hyper3DNet', 'Hyper3DNetQD', 'Russello', 'CNNLF']:
             self.strategy = SpatialCNNStrategy()
-        elif model == 'AdaBoost':
-            self.strategy = AdaBoostStrategy()
-        elif model == 'SAE':
-            self.strategy = SAEStrategy()
         elif model == 'RF':
             self.strategy = RFStrategy()
         elif model == 'GAM':
             self.strategy = GAMStrategy()
         elif model == 'MLRegression':
             self.strategy = MLRegressionStrategy()
+        elif model == 'BayesianRegression':
+            self.strategy = BayesRegressionStrategy()
         else:
-            sys.exit('The only available models are: "Hyper3DNet", "Hyper3DNetQD", '
+            sys.exit('The only available models are: "Hyper3DNet", "Hyper3DNetQD", "BayesianRegression"'
                      '"Russello", "CNNLF", "AdaBoost", "SAE", "RF", "GAM", and "MLRegression".')
 
         # Define the model using the selected CrossValStrategy

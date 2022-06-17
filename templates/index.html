@@ -143,9 +143,9 @@
                 <option value="Hyper3DNet">Hyper3DNet</option>
                 <option value="3D-CNN">3D-CNN</option>
                 <option value="CNN-LF">CNN-LF</option>
-                <option value="AdaBoost">AdaBoost</option>
-                <option value="SAE">Stacked Autoencoder</option>
                 <option value="RF">Random Forest</option>
+                <option value="GAM">GAM</option>
+                <option value="BayesianRegression">Bayesian Regression</option>
                 <option value="MLRegression">Linear Regression</option>
             </select>
             <span class="hovertext" data-hover="For a detailed comparison of the models, visit: ...">
@@ -282,8 +282,7 @@
                 else {document.getElementById("betaList").style.display = "block";}
 
                 if (modelType !== "Hyper3DNet" && modelType !== "Hyper3DNetQD" &&
-                    modelType !== "3D-CNN" && modelType !== "CNN-LF" &&
-                    modelType !== "AdaBoost" && modelType !== "SAE"){
+                    modelType !== "3D-CNN" && modelType !== "CNN-LF"){
                     document.getElementById("epochList").style.display = "none";
                     document.getElementById("batchList").style.display = "none";
                 }

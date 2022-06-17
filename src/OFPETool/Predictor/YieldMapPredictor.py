@@ -204,8 +204,8 @@ class YieldMapPredictor:
         """Train using all the data from the selected years.
         @param batch_size: Size of the mini-batches used for training (used for the CNNs).
         @param epochs: Number pf epochs used for training (used for the CNNs).
-        @param modelType: Name of the model that will be used. Options: 'Hyper3DNet', 'Hyper3DNetQD', 'AdaBoost',
-                          'Russello', 'CNNLF', 'SAE', 'RF', 'GAM', and 'MLRegression'.
+        @param modelType: Name of the model that will be used. Options: 'Hyper3DNet', 'Hyper3DNetQD',
+                          'Russello', 'CNNLF', 'RF', 'GAM', and 'MLRegression'.
         @param print_process: If True, shows the evolution of the performance while training.
         @param objective: Name of the target. Default: 'yld' (Yield).
         @param beta_: Hyperparameters used for generation of the prediction intervals."""
