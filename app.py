@@ -1,5 +1,7 @@
 import os
+import glob
 import shutil
+import zipfile
 import numpy as np
 import pandas as pd
 from src.OFPETool.Predictor import YieldMapPredictor
@@ -51,8 +53,10 @@ def buttons():
     ###################################################################################################################
     # START PREDICTION
     ###################################################################################################################
+    loaded_model = False
     if request.form.get('predict') == "Start Prediction":
         returnMessages = False  # Will be true if any input argument is not correct
+        modelName = None
 
         # Check filepath
         if 'file' not in request.files:
@@ -72,6 +76,26 @@ def buttons():
             if len(df2) == 0:
                 flash('The field name "' + fieldName + '" does not exist in the CSV file', 'error')
                 returnMessages = True
+
+            # Check loaded model
+            modelFile = request.files['modelFile']
+            model_path, stats_path = None, None
+            if modelFile.filename != '':  # If filename not empty it means the user has uploaded a model
+                loaded_model = True
+                filename = modelFile.filename
+                foldername = filename.replace('.zip', '')
+                # Unzip in the upload folder
+                modelFile.save(os.path.join(UPLOAD_FOLDER, filename))
+                zip_ref = zipfile.ZipFile(os.path.join(UPLOAD_FOLDER, filename), 'r')
+                zip_ref.extractall(UPLOAD_FOLDER)
+                zip_ref.close()
+                modelName = filename.split('-')[1]  # Store the model name
+                # Set model path and stats path
+                model_path, stats_path = UPLOAD_FOLDER + '/' + foldername + '/' + foldername.replace('Model-', ''), '_statistics.npy'
+                modelfiles = glob.glob(UPLOAD_FOLDER + '/' + foldername + '/*')
+                for f in modelfiles:
+                    if 'statistics' in f:
+                        stats_path = f
 
             # Check training years
             trainingYears = request.form['trainingYears']
@@ -125,7 +149,8 @@ def buttons():
                 epochs = int(epochs)
 
             # Check model type
-            modelName = request.form['modelName']
+            if not loaded_model:
+                modelName = request.form['modelName']
 
             # Check batch size
             batchSize = request.form['batchSize']
@@ -154,11 +179,16 @@ def buttons():
             # DEFINE
             predictor = YieldMapPredictor.YieldMapPredictor(filename=df, field=fieldName,
                                                             training_years=trainingYears, pred_year=predYear, cov=cov)
-            # TRAIN
-            # predictor.trainPreviousYears(modelType=modelName, batch_size=batchSize, epochs=epochs, beta_=beta,
-            #                              print_process=False)
+            # TRAIN if no trained model was provided
+            if not loaded_model:
+                predictor.trainPreviousYears(modelType=modelName, batch_size=batchSize, epochs=epochs, beta_=beta,
+                                             print_process=False)
             # PREDICT
-            results = predictor.predict(modelType=modelName, uncertainty=uncertainty)
+            if not loaded_model:
+                results = predictor.predict(modelType=modelName, uncertainty=uncertainty)
+            else:
+                results = predictor.predict(modelType=modelName, uncertainty=uncertainty, model_path=model_path,
+                                            stats_path=stats_path)
 
             # PLOT
             filename = "static/YMAP.png"
@@ -198,9 +228,10 @@ def buttons():
 
             return render_template('index.html', filename=filename)
 
-    ###################################################################################################################
-    # DOWNLOAD BUTTONS
-    ###################################################################################################################
+
+###################################################################################################################
+# DOWNLOAD BUTTONS
+###################################################################################################################
 
 
 @app.route('/download/<path:filename>', methods=['GET', 'POST'])

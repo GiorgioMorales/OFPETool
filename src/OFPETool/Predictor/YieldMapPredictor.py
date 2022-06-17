@@ -261,6 +261,7 @@ class YieldMapPredictor:
             else:
                 sys.exit("There is no trained model saved. You need to execute the trainPreviousYear method first.")
         else:
+            self.path_model = model_path
             self.model.loadModel(path=model_path)
 
         # In case the statistics are not provided, read the training set to calculate the statistics
@@ -281,7 +282,7 @@ class YieldMapPredictor:
         else:
             if os.path.exists(stats_path):
                 # Read statistics from file
-                [self.maxs, self.mins] = np.load(stats_path)
+                [self.maxs, self.mins, self.maxY, self.minY] = np.load(stats_path, allow_pickle=True)
             else:
                 sys.exit("There provided path does not exist.")
 

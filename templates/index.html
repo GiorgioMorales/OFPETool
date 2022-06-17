@@ -85,39 +85,6 @@
         <p id="removeModel">
             <button style="font-size : 10px; text-align: center; height:25px; background-color: #5DB85B; border-color: green" id="removeModelB">Remove loaded model</button> </p>
 
-        <script>
-            let model_select = document.getElementById("loadModel");
-            let model_select2 = document.getElementById("modelFile");
-            const button = document.getElementById("removeModelB");
-            document.getElementById("removeModel").style.display = "none";
-
-            model_select.addEventListener('change', (event) => {
-                document.getElementById("removeModel").style.display = "block"; // Show Remove button
-                document.getElementById("sec3").textContent = "Step 2: Managing Uncertainty";
-                document.getElementById("sec4").textContent = "Step 3: Check Results";
-                // Enable training parameters
-                document.getElementById("sec2").style.display = "none";
-                document.getElementById("typeModel").style.display = "none";
-                document.getElementById("epochList").style.display = "none";
-                document.getElementById("batchList").style.display = "none";
-                document.getElementById("betaList").style.display = "none";
-            });
-
-            button.addEventListener("click", function() {
-                // alert(model_select.value);
-                document.getElementById("modelFile").value = null;
-                document.getElementById("removeModel").style.display = "none";
-                document.getElementById("sec3").textContent = "Step 3: Managing Uncertainty";
-                document.getElementById("sec4").textContent = "Step 4: Check Results";
-                // Enable training parameters
-                document.getElementById("sec2").style.display = "block";
-                document.getElementById("typeModel").style.display = "block";
-                document.getElementById("epochList").style.display = "block";
-                document.getElementById("batchList").style.display = "block";
-                document.getElementById("betaList").style.display = "block";
-            });
-        </script>
-
         <p>
             <span class="tab"><label for="fieldName">&#8226; Field Name *</label></span>
             <input type="text" id="fieldName" name="fieldName" required minlength="1" maxlength="20" size="10">
@@ -228,29 +195,6 @@
             </span>
         </p>
 
-        <script>
-            let model_select = document.getElementById("modelName");
-
-            model_select.onchange = function () {
-                const modelType = model_select.value;
-                if (modelType !== "Hyper3DNetQD"){
-                    document.getElementById("betaList").style.display = "none";
-                }
-                else {document.getElementById("betaList").style.display = "block";}
-
-                if (modelType !== "Hyper3DNet" && modelType !== "Hyper3DNetQD" &&
-                    modelType !== "3D-CNN" && modelType !== "CNN-LF" &&
-                    modelType !== "AdaBoost" && modelType !== "SAE"){
-                    document.getElementById("epochList").style.display = "none";
-                    document.getElementById("batchList").style.display = "none";
-                }
-                else {
-                    document.getElementById("epochList").style.display = "block";
-                    document.getElementById("batchList").style.display = "block";
-                }
-            }
-        </script>
-
         &nbsp;
         <h3 id="sec3">Step 3: Managing Uncertainty</h3>
         &nbsp;
@@ -277,7 +221,7 @@
     {% if filename %}
 
         &nbsp;
-        <h3 id="sec4">Step 4: Check Results</h3>
+        <h3 id="sec4">Check Results</h3>
         &nbsp;
         <label>The predicted yield map was successfully generated and its preview is displayed below</label>
         <div>
@@ -295,6 +239,60 @@
                           onclick="window.location.href = st2;"> </span>
         </p>
     {% endif %}
+
+
+
+        <script>
+            let model_load = document.getElementById("loadModel");
+            // let model_select2 = document.getElementById("modelFile");
+            const button = document.getElementById("removeModelB");
+            document.getElementById("removeModel").style.display = "none";
+
+            model_load.addEventListener('change', (event) => {
+                document.getElementById("removeModel").style.display = "block"; // Show Remove button
+                document.getElementById("sec3").textContent = "Step 2: Managing Uncertainty";
+                // Enable training parameters
+                document.getElementById("sec2").style.display = "none";
+                document.getElementById("typeModel").style.display = "none";
+                document.getElementById("epochList").style.display = "none";
+                document.getElementById("batchList").style.display = "none";
+                document.getElementById("betaList").style.display = "none";
+            });
+
+            button.addEventListener("click", function() {
+                // alert(model_select.value);
+                document.getElementById("modelFile").value = null;
+                document.getElementById("removeModel").style.display = "none";
+                document.getElementById("sec3").textContent = "Step 3: Managing Uncertainty";
+                // Enable training parameters
+                document.getElementById("sec2").style.display = "block";
+                document.getElementById("typeModel").style.display = "block";
+                document.getElementById("epochList").style.display = "block";
+                document.getElementById("batchList").style.display = "block";
+                document.getElementById("betaList").style.display = "block";
+            });
+
+            let model_select = document.getElementById("modelName");
+
+            model_select.onchange = function () {
+                const modelType = model_select.value;
+                if (modelType !== "Hyper3DNetQD"){
+                    document.getElementById("betaList").style.display = "none";
+                }
+                else {document.getElementById("betaList").style.display = "block";}
+
+                if (modelType !== "Hyper3DNet" && modelType !== "Hyper3DNetQD" &&
+                    modelType !== "3D-CNN" && modelType !== "CNN-LF" &&
+                    modelType !== "AdaBoost" && modelType !== "SAE"){
+                    document.getElementById("epochList").style.display = "none";
+                    document.getElementById("batchList").style.display = "none";
+                }
+                else {
+                    document.getElementById("epochList").style.display = "block";
+                    document.getElementById("batchList").style.display = "block";
+                }
+            }
+        </script>
 
 </div>
 </div>
