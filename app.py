@@ -4,8 +4,9 @@ import shutil
 import zipfile
 import numpy as np
 import pandas as pd
-from src.OFPETool.Predictor import YieldMapPredictor
 import matplotlib.pyplot as plt
+from src.OFPETool.Predictor import YieldMapPredictor, utils
+from src.OFPETool.Predictor.DataLoader import loadData
 from flask import Flask, flash, request, redirect, url_for, render_template, send_file
 
 
@@ -87,12 +88,12 @@ def buttons():
                 # Unzip in the upload folder
                 modelFile.save(os.path.join(UPLOAD_FOLDER, filename))
                 zip_ref = zipfile.ZipFile(os.path.join(UPLOAD_FOLDER, filename), 'r')
-                zip_ref.extractall(UPLOAD_FOLDER)
+                zip_ref.extractall('output/')
                 zip_ref.close()
                 modelName = filename.split('-')[1]  # Store the model name
                 # Set model path and stats path
-                model_path, stats_path = UPLOAD_FOLDER + '/' + foldername + '/' + foldername.replace('Model-', ''), '_statistics.npy'
-                modelfiles = glob.glob(UPLOAD_FOLDER + '/' + foldername + '/*')
+                model_path, stats_path = 'output/' + foldername + '/' + foldername.replace('Model-', ''), '_statistics.npy'
+                modelfiles = glob.glob('output/' + foldername + '/*')
                 for f in modelfiles:
                     if 'statistics' in f:
                         stats_path = f
@@ -121,6 +122,11 @@ def buttons():
                 returnMessages = True
             else:
                 predYear = int(predYear)
+            # Check if there's data about the prediction year
+            df2 = df[df['year'] == predYear]
+            show_performance = True
+            if len(df2) == 0:
+                show_performance = False  # If there's no data, hide the performance button
 
             # Check prediction objective
             objective = request.form['objective']
@@ -226,7 +232,51 @@ def buttons():
                 cbar.ax.tick_params(labelsize=9)
                 colorize(filename)
 
-            return render_template('index.html', filename=filename)
+            # PERFORMANCE
+            if show_performance:
+                performancePath = (os.path.dirname(predictor.path_model) + '_Performance.txt').replace('Model-', '')
+                if uncertainty:
+                    y_map_QD, u_map_QD, l_map_QD, PI_map_QD = results
+                    target, _, _, _ = loadData(path=df, field=fieldName, year=predYear, inpaint=True,
+                                               inpaint_features=False, test=False)
+                    target = target * predictor.mask_field
+                    y_map_QD[target == -1] = -1
+                    u_map_QD[target == -1] = -1
+                    l_map_QD[target == -1] = -1
+                    PI_map_QD[target == -1] = -1
+                    RMSE = utils.mse(y_map_QD, target, removeZeros=True) ** .5
+                    Ymap_vec = np.reshape(target, (y_map_QD.shape[0] * y_map_QD.shape[1], 1))
+                    yield_map_vec = np.reshape(y_map_QD, (y_map_QD.shape[0] * y_map_QD.shape[1], 1))
+                    y_ur = np.reshape(u_map_QD, (y_map_QD.shape[0] * y_map_QD.shape[1], 1))
+                    y_ur = np.array([i for m, i in zip(yield_map_vec, y_ur) if m > 0])
+                    y_lr = np.reshape(l_map_QD, (y_map_QD.shape[0] * y_map_QD.shape[1], 1))
+                    y_lr = np.array([i for m, i in zip(yield_map_vec, y_lr) if m > 0])
+                    # Vectorize maps and remove points outside the field
+                    Ymap_vec2 = np.array([i for m, i in zip(yield_map_vec, Ymap_vec) if m > 0])
+                    PI_map_vec = np.reshape(PI_map_QD, (PI_map_QD.shape[0] * PI_map_QD.shape[1], 1))
+                    PI_map_vec = np.array([i for m, i in zip(yield_map_vec, PI_map_vec) if m > 0])
+                    MPIW0, MPIW, PICP, K, N = utils.MPIW_PICP(y_true=Ymap_vec2, y_u=y_ur, y_l=y_lr, unc=PI_map_vec)
+                    with open(performancePath, 'a') as x_file:
+                        x_file.write('Model type: ' + predictor.modelType + '\n')
+                        x_file.write("RMSE = %.2f" % (float(RMSE)))
+                        x_file.write('\n')
+                        x_file.write("Mean PI Width (MPIW) = %.3f" % (float(MPIW)))
+                        x_file.write('\n')
+                        x_file.write("PI Coverage Probability (PICP) = %.3f" % (float(PICP)))
+                        x_file.write('\n')
+                else:
+                    y_map = results
+                    target, _, _, _ = loadData(path=df, field=fieldName, year=predYear, inpaint=True,
+                                               inpaint_features=False, test=False)
+                    target = target * predictor.mask_field
+                    y_map[target == -1] = -1
+                    RMSE = utils.mse(y_map, target, removeZeros=True) ** .5
+                    with open(performancePath, 'a') as x_file:
+                        x_file.write('Model type: ' + predictor.modelType + '\n')
+                        x_file.write("RMSE = %.2f" % (float(RMSE)))
+                        x_file.write('\n')
+
+            return render_template('index.html', filename=filename, performance=show_performance)
 
 
 ###################################################################################################################
@@ -236,14 +286,16 @@ def buttons():
 
 @app.route('/download/<path:filename>', methods=['GET', 'POST'])
 def download_file(filename):
-    print(filename)
     shapePath = (os.path.dirname(predictor.path_model) + '_Shapefile').replace('Model-', '')
     shutil.make_archive(shapePath, 'zip', shapePath)
     shutil.make_archive(os.path.dirname(predictor.path_model), 'zip', os.path.dirname(predictor.path_model))
     if filename == 'shapefile':
         return send_file((os.path.dirname(predictor.path_model) + '_Shapefile').replace('Model-', '') + '.zip', as_attachment=True)
-    else:
+    elif filename == 'model':
         return send_file(os.path.dirname(predictor.path_model) + '.zip', as_attachment=True)
+    else:
+        shapePath = (os.path.dirname(predictor.path_model) + '_Performance.txt').replace('Model-', '')
+        return send_file(shapePath, as_attachment=True)
 
 
 ######################################################################################

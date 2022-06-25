@@ -229,7 +229,8 @@
         </div>
         <p>
             <script>let st1 = "{{ url_for('.download_file', filename='shapefile') }}";
-                    let st2 = "{{ url_for('.download_file', filename='model') }}"
+                    let st2 = "{{ url_for('.download_file', filename='model') }}";
+                    let st3 = "{{ url_for('.download_file', filename='performance') }}";
             </script>
             <input style="background-color: #5DB85B; border-color: green" type="submit"
                    value="Download shapefiles" class="btn btn-info" name="shapefile"
@@ -237,7 +238,12 @@
             <span> <input style="background-color: #5DB85B; border-color: green" type="submit"
                           value="Download trained model" class="btn btn-info" name="model"
                           onclick="window.location.href = st2;"> </span>
-        </p>
+            {% if performance %}
+            <span> <input style="background-color: #5DB85B; border-color: green" type="submit"
+                          value="Download performance metrics" class="btn btn-info" name="performance"
+                          onclick="window.location.href = st3;"> </span>
+            {% endif %}
+        </p>&nbsp;
     {% endif %}
 
 
