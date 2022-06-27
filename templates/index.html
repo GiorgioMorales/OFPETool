@@ -136,26 +136,93 @@
         &nbsp;
         <h3 id="sec2">Step 2: Specify training parameters</h3>
         &nbsp;
-        <p id="typeModel">
-            <span class="tab"><label for="modelName">&#8226; Model Name</label></span>
-            <select name="modelName" id="modelName">
-                <option value="Hyper3DNetQD">Hyper3DNetQD</option>
-                <option value="Hyper3DNet">Hyper3DNet</option>
-                <option value="3D-CNN">3D-CNN</option>
-                <option value="CNN-LF">CNN-LF</option>
-                <option value="RF">Random Forest</option>
-                <option value="GAM">GAM</option>
-                <option value="BayesianRegression">Bayesian Regression</option>
-                <option value="MLRegression">Linear Regression</option>
-            </select>
-            <span class="hovertext" data-hover="For a detailed comparison of the models, visit: ...">
+        <p id="typeModel1">
+            <span class="tab"><label>&#8226; Model Name</label></span>
+
+            <input type="checkbox" id="Hyper3DNetQD" name="Hyper3DNetQD" onclick="checkModel()" checked>
+            <label for="Hyper3DNetQD">Hyper3DNetQD</label>
+            <span class="hovertext" data-hover="A 3D-2D convolutional neural network designed for two-dimensional deep
+            regression that generates prediction intervals automatically.">
+            <i class="icon-info-sign"></i>
+            </span>
+
+<!--            <select name="modelName" id="modelName">-->
+<!--                <option value="Hyper3DNetQD">Hyper3DNetQD</option>-->
+<!--                <option value="Hyper3DNet">Hyper3DNet</option>-->
+<!--                <option value="3D-CNN">3D-CNN</option>-->
+<!--                <option value="CNN-LF">CNN-LF</option>-->
+<!--                <option value="RF">Random Forest</option>-->
+<!--                <option value="GAM">GAM</option>-->
+<!--                <option value="BayesianRegression">Bayesian Regression</option>-->
+<!--                <option value="MLRegression">Linear Regression</option>-->
+<!--            </select>-->
+<!--            <span class="hovertext" data-hover="For a detailed comparison of the models, visit: ...">-->
+<!--            <i class="icon-info-sign"></i>-->
+<!--            </span>-->
+        </p>
+        <p id="typeModel2">
+            <span class="tab"><label> </label></span>
+            <input type="checkbox" id="Hyper3DNet" name="Hyper3DNet" onclick="checkModel()">
+            <label for="Hyper3DNet">Hyper3DNet</label>
+            <span class="hovertext" data-hover="A 3D-2D convolutional neural network designed for two-dimensional deep
+            regression.">
             <i class="icon-info-sign"></i>
             </span>
         </p>
+        <p id="typeModel3">
+            <span class="tab"><label> </label></span>
+            <input type="checkbox" id="3D-CNN" name="3D-CNN" onclick="checkModel()">
+            <label for="3D-CNN">3D-CNN</label>
+            <span class="hovertext" data-hover="A 3-D convolutional neural network.">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p id="typeModel4">
+            <span class="tab"><label> </label></span>
+            <input type="checkbox" id="CNN-LF" name="CNN-LF" onclick="checkModel()">
+            <label for="CNN-LF">CNN-LF</label>
+            <span class="hovertext" data-hover="A late-fusion convolutional neural network.">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p id="typeModel5">
+            <span class="tab"><label> </label></span>
+            <input type="checkbox" id="RF" name="RF" onclick="checkModel()">
+            <label for="RF">Random forest</label>
+            <span class="hovertext" data-hover="A random forest that uses 1000 trees.">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p id="typeModel6">
+            <span class="tab"><label> </label></span>
+            <input type="checkbox" id="GAM" name="GAM" onclick="checkModel()">
+            <label for="GAM">Generalized additive model (GAM)</label>
+            <span class="hovertext" data-hover="A generalized additive models with a Gamma family distribution.">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p id="typeModel7">
+            <span class="tab"><label> </label></span>
+            <input type="checkbox" id="BayesianRegression" name="BayesianRegression" onclick="checkModel()">
+            <label for="BayesianRegression">Bayesian Linear Regression</label>
+            <span class="hovertext" data-hover=".">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+        <p id="typeModel8">
+            <span class="tab"><label> </label></span>
+            <input type="checkbox" id="MLRegression" name="MLRegression" onclick="checkModel()">
+            <label for="MLRegression">Linear Regression</label>
+            <span class="hovertext" data-hover=".">
+            <i class="icon-info-sign"></i>
+            </span>
+        </p>
+
+
         <p id="epochList">
             <span class="tab"><label for="epochs">&#8226; Epochs</label></span>
             <input type="text" id="epochs" name="epochs" required minlength="4" maxlength="20" size="10" placeholder="500" value="500">
-            <span class="hovertext" data-hover="Number of times that the learning algorithm will work through the entire training dataset. Usually, no more than 500">
+            <span class="hovertext" data-hover="Only applicable for CNNs. Number of times that the learning algorithm will work through the entire training dataset. Usually, no more than 500">
             <i class="icon-info-sign"></i>
             </span>
         </p>
@@ -168,7 +235,7 @@
                 <option value="128">128</option>
                 <option value="256">256</option>
             </select>
-            <span class="hovertext" data-hover="The number of data points that will be passed through to the neural network at one time.
+            <span class="hovertext" data-hover="Only applicable for CNNs. The number of data points that will be passed through to the neural network at one time.
             The optimal batch size is different for each field and it can be found through tuning!">
             <i class="icon-info-sign"></i>
             </span>
@@ -183,7 +250,7 @@
         <p id="betaList">
             <span class="tab"><label for="beta">&#8226; Beta</label></span>
             <input type="text" id="beta" name="beta" required minlength="1" maxlength="20" size="10" placeholder="6" value="6">
-            <span class="hovertext" data-hover="Hyperparameter that balance the prediction interval width and probability coverage. Usually, between 5 and 10.">
+            <span class="hovertext" data-hover="Only applicable for Hyper3DNetQD. Hyperparameter that balances the prediction interval width and probability coverage. Usually, between 5 and 10.">
             <i class="icon-info-sign"></i>
             </span>
             <span class="tab"></span>Optional:
@@ -236,7 +303,7 @@
                    value="Download shapefiles" class="btn btn-info" name="shapefile"
                    onclick="window.location.href = st1;">
             <span> <input style="background-color: #5DB85B; border-color: green" type="submit"
-                          value="Download trained model" class="btn btn-info" name="model"
+                          value="Download trained model(s)" class="btn btn-info" name="model"
                           onclick="window.location.href = st2;"> </span>
             {% if performance %}
             <span> <input style="background-color: #5DB85B; border-color: green" type="submit"
@@ -250,7 +317,6 @@
 
         <script>
             let model_load = document.getElementById("loadModel");
-            // let model_select2 = document.getElementById("modelFile");
             const button = document.getElementById("removeModelB");
             document.getElementById("removeModel").style.display = "none";
 
@@ -259,7 +325,13 @@
                 document.getElementById("sec3").textContent = "Step 2: Managing Uncertainty";
                 // Enable training parameters
                 document.getElementById("sec2").style.display = "none";
-                document.getElementById("typeModel").style.display = "none";
+                document.getElementById("typeModel1").style.display = "none";
+                document.getElementById("typeModel2").style.display = "none";
+                document.getElementById("typeModel3").style.display = "none";
+                document.getElementById("typeModel4").style.display = "none";
+                document.getElementById("typeModel5").style.display = "none";
+                document.getElementById("typeModel6").style.display = "none";
+                document.getElementById("typeModel7").style.display = "none";
                 document.getElementById("epochList").style.display = "none";
                 document.getElementById("batchList").style.display = "none";
                 document.getElementById("betaList").style.display = "none";
@@ -272,7 +344,13 @@
                 document.getElementById("sec3").textContent = "Step 3: Managing Uncertainty";
                 // Enable training parameters
                 document.getElementById("sec2").style.display = "block";
-                document.getElementById("typeModel").style.display = "block";
+                document.getElementById("typeModel1").style.display = "block";
+                document.getElementById("typeModel2").style.display = "block";
+                document.getElementById("typeModel3").style.display = "block";
+                document.getElementById("typeModel4").style.display = "block";
+                document.getElementById("typeModel5").style.display = "block";
+                document.getElementById("typeModel6").style.display = "block";
+                document.getElementById("typeModel7").style.display = "block";
                 document.getElementById("epochList").style.display = "block";
                 document.getElementById("batchList").style.display = "block";
                 document.getElementById("betaList").style.display = "block";
@@ -295,6 +373,37 @@
                 else {
                     document.getElementById("epochList").style.display = "block";
                     document.getElementById("batchList").style.display = "block";
+                }
+            };
+
+            function checkModel(){
+                if (document.getElementById("Hyper3DNetQD").checked !== true){
+                    document.getElementById("betaList").style.display = "none";
+                }
+                else document.getElementById("betaList").style.display = "block";
+
+
+                if (document.getElementById("Hyper3DNetQD").checked === true ||
+                    document.getElementById("Hyper3DNet").checked === true ||
+                    document.getElementById("3D-CNN").checked === true ||
+                    document.getElementById("CNN-LF").checked === true){
+                    document.getElementById("batchList").style.display = "block";
+                    document.getElementById("epochList").style.display = "block";
+                }
+                else{
+                    document.getElementById("batchList").style.display = "none";
+                    document.getElementById("epochList").style.display = "none";
+                }
+
+                if (document.getElementById("Hyper3DNetQD").checked === false &&
+                    document.getElementById("Hyper3DNet").checked === false &&
+                    document.getElementById("3D-CNN").checked === false &&
+                    document.getElementById("CNN-LF").checked === false &&
+                    document.getElementById("RF").checked === false &&
+                    document.getElementById("GAM").checked === false &&
+                    document.getElementById("BayesianRegression").checked === false &&
+                    document.getElementById("MLRegression").checked === false){
+                    alert("At least one model type has to be checked.")
                 }
             }
         </script>

@@ -221,15 +221,16 @@ class YieldMapPredictor:
         trainx, self.maxs, self.mins = utils.normalize(trainx)
         # Normalize outputs using the training set
         train_y, self.maxY, self.minY = utils.minMaxScale(train_y)
-        # Save statistics
-        np.save('output/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + '/' +
-                self.field + '_statistics.npy', [self.maxs, self.mins, self.maxY, self.minY])
 
         self.model = self.init_model(modelType=modelType)  # Initialize ML model
-        self.path_model = 'output/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
-                          '/' + self.modelType + "-" + self.field + "--Objective-" + objective
+        self.path_model = 'output/' + 'Model-' + modelType + "-" + self.field + "--Objective-" + objective + \
+                          '/' + modelType + "-" + self.field + "--Objective-" + objective
         if not os.path.exists(os.path.dirname(self.path_model)):
             os.mkdir(os.path.dirname(self.path_model))
+
+        # Save statistics
+        np.save('output/' + 'Model-' + modelType + "-" + self.field + "--Objective-" + objective + '/' +
+                self.field + '_statistics.npy', [self.maxs, self.mins, self.maxY, self.minY])
 
         # Train the model using the current training-validation split
         return self.model.trainPrevious(trainx, train_y, batch_size, epochs, self.path_model, print_process,
@@ -254,8 +255,8 @@ class YieldMapPredictor:
         print("Loading model...")
         if model_path is None:
             # If the model and the statistics are not provided, check if they are in the temp file
-            self.path_model = 'output/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
-                          '/' + self.modelType + "-" + self.field + "--Objective-" + objective
+            self.path_model = 'output/' + 'Model-' + modelType + "-" + self.field + "--Objective-" + objective + \
+                          '/' + modelType + "-" + self.field + "--Objective-" + objective
             if os.path.exists(self.path_model):
                 self.model.loadModel(path=self.path_model)
             else:
@@ -267,7 +268,7 @@ class YieldMapPredictor:
         # In case the statistics are not provided, read the training set to calculate the statistics
         if stats_path is None:
             # Try to check if there's a file in the temp folder with the statistics of the field
-            stats_path = 'output/' + 'Model-' + self.modelType + "-" + self.field + "--Objective-" + objective + \
+            stats_path = 'output/' + 'Model-' + modelType + "-" + self.field + "--Objective-" + objective + \
                          '/' + self.field + '_statistics.npy'
             if os.path.exists(stats_path):
                 [self.maxs, self.mins, self.maxY, self.minY] = np.load(stats_path, allow_pickle=True)
@@ -314,7 +315,7 @@ class YieldMapPredictor:
         temp_yield_map = np.frompyfunc(list, 0, 1)(np.empty((self.data.shape[0], self.data.shape[1]), dtype=object))
         # Initialize variables for when the upper and lower bounds are given instead of the predicted yield
         y_u, y_l, temp_y_u, temp_y_l, temp_y_p = None, None, None, None, None
-        if self.modelType == 'Hyper3DNetQD':
+        if modelType == 'Hyper3DNetQD':
             y_u = np.zeros((self.data.shape[0], self.data.shape[1]))  # Store upper bounds
             y_l = np.zeros((self.data.shape[0], self.data.shape[1]))  # Store lower bounds
             temp_y_u = np.frompyfunc(list, 0, 1)(np.empty((self.data.shape[0], self.data.shape[1]), dtype=object))
@@ -329,12 +330,12 @@ class YieldMapPredictor:
             ymin = y - int((self.outputSize - 1) / 2)
             # Put ypatch in temp_map considering its original position
             if self.outputSize == 1:
-                if self.modelType in ['MLRegression', 'AdaBoost', 'SAE', 'RF', 'GAM']:
+                if modelType in ['MLRegression', 'AdaBoost', 'SAE', 'RF', 'GAM']:
                     temp_yield_map[xmin, ymin].append(ypatch)
                     if uncertainty:
                         PI_map[xmin, ymin] = uncPatches[i]
                 else:
-                    if self.modelType == 'Hyper3DNetQD':
+                    if modelType == 'Hyper3DNetQD':
                         temp_y_u[xmin, ymin] += list(ypatch[0, :, :])
                         temp_y_l[xmin, ymin] += list(ypatch[1, :, :])
                         temp_y_p[xmin, ymin] += list(ypatch[2, :, :])
@@ -346,7 +347,7 @@ class YieldMapPredictor:
             else:
                 for patch_x in range(ypatch.shape[0]):
                     for patch_y in range(ypatch.shape[1]):
-                        if self.modelType == 'Hyper3DNetQD':
+                        if modelType == 'Hyper3DNetQD':
                             if str(type(ypatch[patch_x, patch_y])) == '<class \'numpy.float64\'>':
                                 temp_y_u[xmin + patch_x, ymin + patch_y].append(ypatch[0])
                                 temp_y_l[xmin + patch_x, ymin + patch_y].append(ypatch[1])
@@ -364,7 +365,7 @@ class YieldMapPredictor:
         # Average overlapping regions
         for i in range(self.data.shape[0]):
             for j in range(self.data.shape[1]):
-                if self.modelType == 'Hyper3DNetQD':
+                if modelType == 'Hyper3DNetQD':
                     if not temp_y_u[i, j]:
                         continue
                     # Calculate mean upper and lower bounds
@@ -384,7 +385,7 @@ class YieldMapPredictor:
                     # Calculate mean
                     yield_map[i, j] = np.mean(temp_vec)
                     # Obtain the standard deviation of each pixel for CNNs methods using MCDropout
-                    if uncertainty and (self.modelType in ['Hyper3DNet', 'Russello', 'CNNLF']):
+                    if uncertainty and (modelType in ['Hyper3DNet', 'Russello', 'CNNLF']):
                         PI_map[i, j] = np.std(temp_vec)  # This is the model uncertainty (variance)
 
         # Discard results that are outside the field
@@ -394,7 +395,7 @@ class YieldMapPredictor:
         PI_map = np.multiply(PI_map, self.mask_field)
 
         # If using MCDropout, add the data noise variance
-        if uncertainty and self.modelType not in ['MLRegression', 'Hyper3DNetQD']:
+        if uncertainty and modelType not in ['MLRegression', 'Hyper3DNetQD']:
             # Load validation MSE
             with open(self.path_model + '_validationMSE', 'rb') as f:
                 val_MSE = pickle.load(f)
@@ -404,7 +405,7 @@ class YieldMapPredictor:
         coords = np.reshape(self.coords, (self.coords.shape[0] * self.coords.shape[1]))  # Vectorize coordinates map
         yield_vector = np.reshape(yield_map, (yield_map.shape[0] * yield_map.shape[1]))  # Vectorize yield map
         yield_vector = [y for y, cr in zip(yield_vector, coords) if cr is not None]
-        if self.modelType == "Hyper3DNetQD":
+        if modelType == "Hyper3DNetQD":
             yu_vector = np.reshape(y_u, (y_u.shape[0] * y_u.shape[1]))  # Vectorize upper bound map
             yu_vector = [y for y, cr in zip(yu_vector, coords) if cr is not None]
             yl_vector = np.reshape(y_l, (y_l.shape[0] * y_l.shape[1]))  # Vectorize lower bound map
@@ -421,7 +422,7 @@ class YieldMapPredictor:
             return yield_map
         # Or return prediction and upper and lower bounds
         else:
-            if self.modelType == "Hyper3DNetQD":
+            if modelType == "Hyper3DNetQD":
                 y_u = utils.reverseMinMaxScale(y_u, maxs=self.maxY, mins=self.minY)
                 y_l = utils.reverseMinMaxScale(y_l, maxs=self.maxY, mins=self.minY)
                 PI_map = utils.reverseMinMaxScale(PI_map, maxs=self.maxY, mins=self.minY)

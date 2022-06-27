@@ -1,2 +1,0 @@
-Model type: Hyper3DNet
-RMSE = 16.40.
